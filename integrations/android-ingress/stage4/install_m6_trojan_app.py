@@ -18,6 +18,11 @@ ORIGINAL = {
 }
 NEW_SOURCES = {
     KOTLIN / "TrojanOutboundParser.kt": "integrations/android-ingress/stage4/TrojanOutboundParser.kt",
+    Path("test/trojan_subscription_test.dart"): "integrations/android-ingress/stage4/trojan_subscription_test.dart",
+}
+NEW_SOURCE_BLOBS = {
+    KOTLIN / "TrojanOutboundParser.kt": "e3fb508317ac15ef4c5adf8c7cd849a0dd5b2c50",
+    Path("test/trojan_subscription_test.dart"): "6ab113564fbca9f0580c1c51ec6f6c1e8a268e2f",
 }
 
 def blob(data):
@@ -159,6 +164,9 @@ def main():
             print("M6_TROJAN=BLOCKED_MISSING_STAGED_SOURCE")
             return 1
         updated = source.read_bytes()
+        if blob(updated) != NEW_SOURCE_BLOBS[rel]:
+            print("M6_TROJAN=BLOCKED_STAGED_BLOB_MISMATCH")
+            return 1
         if dest.exists() and dest.read_bytes() != updated:
             print("M6_TROJAN=BLOCKED_EXISTING_TROJAN_PARSER")
             return 1
