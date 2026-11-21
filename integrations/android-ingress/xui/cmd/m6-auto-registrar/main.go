@@ -112,7 +112,7 @@ func configuredTCPRoutes(root string) (map[string]string, []string, error) {
     if err != nil { return nil, nil, err }
     var cfg bridgeRuntimeConfig
     if err := json.Unmarshal(data, &cfg); err != nil { return nil, nil, err }
-    if cfg.Mode != "server" || len(cfg.Routes) == 0 {
+    if cfg.Mode != "server" || len(cfg.Routes) == 0 || len(cfg.Routes) > 256 {
         return nil, nil, errors.New("Bridge TCP routes unavailable")
     }
     services := make([]string, 0, len(cfg.Routes))
