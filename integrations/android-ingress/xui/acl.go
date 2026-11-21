@@ -35,7 +35,7 @@ func AddDeviceToACLServices(serverJSON []byte, leafFingerprint string, services 
 	if err := json.Unmarshal(raw["routes"], &routes); err != nil {
 		return nil, errors.New("service route unavailable")
 	}
-    if len(services) == 0 || len(services) > 8 {
+    if len(services) == 0 || len(services) > 256 {
         return nil, errors.New("invalid Bridge service list")
     }
     seen := make(map[string]bool)
