@@ -3,7 +3,7 @@ package com.tervonvpndpi.app
 /**
  * Routing decision only. Never changes VPN configuration or starts Bridge.
  * The caller must establish the authorized mTLS Bridge, check local readiness,
- * and identify the active VLESS TCP or TCP-based XHTTP destination.
+ * and identify the selected VLESS/Trojan TCP or TCP-based XHTTP destination.
  */
 internal object BridgeVlessRoutePlan {
     // Xray calls its normal TCP stream "tcp" or "raw"; omitted network also defaults to TCP.
@@ -45,7 +45,7 @@ internal object BridgeVlessRoutePlan {
         bridgeReady: Boolean
     ): Decision {
         if (!enabled) return Decision.Direct
-        if (!protocol.equals("vless", ignoreCase = true) ||
+        if (protocol.lowercase(java.util.Locale.ROOT) !in setOf("vless", "trojan") ||
             !isSupportedTransport(transport)) {
             return Decision.Blocked(Reason.UNSUPPORTED_TRANSPORT)
         }
