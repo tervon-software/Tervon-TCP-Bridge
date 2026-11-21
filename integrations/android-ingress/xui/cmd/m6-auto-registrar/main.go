@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"regexp"
 	"sort"
 	"strings"
 	"path/filepath"
@@ -123,7 +124,7 @@ func configuredTCPRoutes(root string) (map[string]string, []string, error) {
     sort.Strings(services)
     ports := make(map[string]string)
     for _, name := range services {
-        if len(name) > 64 || name == "" || strings.ContainsAny(name, " /@\\\\") {
+        if !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`).MatchString(name) {
             return nil, nil, errors.New("invalid Bridge service identifier")
         }
         backends := cfg.Routes[name]
