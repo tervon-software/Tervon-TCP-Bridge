@@ -14,19 +14,19 @@ TARGET_DART = Path("lib/features/home")
 REVISIONS = {
     "BridgeVpnSession.kt": (
         "16eab42b49173f55e2d997f7c04d6edb2b58e527",
-        "6d3f3187152034cdf7fd79e9deb3927ebc656567",
+        "338fa4864c0e898127a1f2e0bc93e1266990ab98",
     ),
     "BridgeAutoEnrollmentHttp.kt": (
         "c2a3d6d0d29046ee5033dac23cbba580627448e1",
-        "79678813b567b431ca14d80bb5153212bbba1de6",
+        "c136e8da473b2ae17c92a33dd0dd98a94d3f7f7c",
     ),
     "BridgeVlessRoutePlan.kt": (
         "cc2162eac04f456e75eb9a64b2b9466bb1512e97",
-        "5ba044d59732e8f1a24cb5869723482a9d3adf31",
+        "a73a5ef5797c7778e24635a8fbbc5ae75e637f33",
     ),
     "BridgeXrayConfigRoute.kt": (
         "a0f4e404028b42a2efbbaa309bbbe9c18c57fd2e",
-        "cdfae054e11eff752b560197f07599bf7175199f",
+        "c97f107e361f2573cf11ca0e233b32ef16ed1b73",
     ),
     "bridge_settings_screen.dart": (
         "9ce2ab30b225513a95d9b60ccc3726a201e1f58b",
