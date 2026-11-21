@@ -7,7 +7,7 @@ import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
 
-/** M6: existing Go v1.0.1 Bridge + libv2ray VLESS TCP or XHTTP-over-TCP.
+/** M6: existing Go v1.0.1 Bridge + libv2ray VLESS/Trojan TCP or XHTTP-over-TCP.
  * Never changes the persisted direct Xray config or HEV/TUN. Failures use direct.
  */
 internal object BridgeVpnSession {
@@ -41,7 +41,8 @@ internal object BridgeVpnSession {
             val outbounds = root.getJSONArray("outbounds")
             val proxy = (0 until outbounds.length()).map { outbounds.getJSONObject(it) }
                 .single { it.optString("tag") == "proxy" }
-            if (proxy.optString("protocol") != "vless") return fallback("UNSUPPORTED_PROTOCOL", direct)
+            val protocol = proxy.optString("protocol").lowercase(java.util.Locale.ROOT)
+            if (protocol !in setOf("vless", "trojan")) return fallback("UNSUPPORTED_PROTOCOL", direct)
             val stream = proxy.optJSONObject("streamSettings")
             val network = stream?.optString("network")
             if (!BridgeVlessRoutePlan.isSupportedTransport(network)) return fallback("UNSUPPORTED_TRANSPORT", direct)
@@ -53,7 +54,11 @@ internal object BridgeVpnSession {
                         alpn.optString(it).equals("h3", ignoreCase = true)
                     }) return fallback("XHTTP_H3_UNSUPPORTED", direct)
             }
-            val dest = proxy.getJSONObject("settings").getJSONArray("vnext").getJSONObject(0)
+            val destinations = proxy.getJSONObject("settings").getJSONArray(
+                if (protocol == "trojan") "servers" else "vnext"
+            )
+            if (destinations.length() != 1) return fallback("PROFILE_CONFIG_INVALID", direct)
+            val dest = destinations.getJSONObject(0)
             val selected = BridgeVlessRoutePlan.Endpoint(dest.getString("address"), dest.getInt("port"))
 
             // Re-read the approved subscription host on every start/profile change;
@@ -63,7 +68,8 @@ internal object BridgeVpnSession {
             val trusted = http.discover(origin) ?: return fallback("DISCOVERY_NO_BRIDGE", direct)
             val params = http.discoveredParameters() ?: return fallback("DISCOVERY_NO_PARAMETERS", direct)
             if (params.serverId != trusted.serverId) return fallback("DISCOVERY_ID_MISMATCH", direct)
-            val authorizedService = params.transportServices[transport]
+            val serviceKey = if (protocol == "trojan") "trojan_$transport" else transport
+            val authorizedService = params.transportServices[serviceKey]
                 ?: return fallback("XHTTP_ROUTE_UNAVAILABLE", direct)
 
             val identity = BridgeDeviceIdentity(context)
@@ -114,14 +120,14 @@ internal object BridgeVpnSession {
             files.close()
             handoff = null
             val decision = BridgeVlessRoutePlan.decide(
-                enabled = true, protocol = "vless", transport = network ?: "tcp",
+                enabled = true, protocol = protocol, transport = network ?: "tcp",
                 activeServer = selected,
                 subscriptionVerified = params.serverId == trusted.serverId,
                 localPort = port, bridgeReady = ready
             )
             failureCode = "ROUTE_REJECTED"
             val route = (decision as? BridgeVlessRoutePlan.Decision.ThroughBridge)?.route
-                ?: error("VLESS TCP route did not pass authorization")
+                ?: error("VPN TCP route did not pass authorization")
             failureCode = "XRAY_ROUTE_FAILED"
             val routed = BridgeXrayConfigRoute.apply(direct, route)
             prefs.edit().putInt("metricsPort", metricsPort).apply()
