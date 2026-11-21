@@ -39,6 +39,9 @@ func TestDynamicTCPRoutesFailClosed(t *testing.T) {
         `{"mode":"server","routes":{"vpn":[{"Address":"not-hostport"}]}}`,
         `{"mode":"server","routes":{"vpn":[{"Address":"host:0"}]}}`,
         `{"mode":"server","routes":{"vpn":[{"Address":"host:443"}],"another":[{"Address":"host:443"}]}}`,
+        `{"mode":"server","routes":{"vpn":[{"Address":"host:443"},{"Address":"host:444"}]}}`,
+        `{"mode":"server","routes":{"bad+name":[{"Address":"host:443"}]}}`,
+
         `{"mode":"server","routes":{"vpn":[{"Address":"host:443"}],"bad/name":[{"Address":"host:444"}]}}`,
     }
     for _,config := range cases {
