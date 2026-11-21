@@ -80,6 +80,33 @@ internal object BridgeXrayConfigRouteTest {
         tcp.getJSONArray("outbounds").getJSONObject(0).getJSONObject("streamSettings")
             .remove("network")
         check(runCatching { BridgeXrayConfigRoute.apply(tcp.toString(), route) }.isSuccess)
+        // Trojan uses servers instead of VLESS vnext. Password and original
+        // TLS identity must survive redirect without ever entering logs.
+        val trojan = JSONObject(profile("tcp", JSONObject()))
+        val tProxy = trojan.getJSONArray("outbounds").getJSONObject(0)
+        tProxy.put("protocol", "trojan")
+        tProxy.put("settings", JSONObject().put("servers", JSONArray().put(
+            JSONObject().put("address", "vpn.example").put("port", 30443)
+                .put("password", "secret-test-only"))))
+        val trojanRouted = JSONObject(BridgeXrayConfigRoute.apply(trojan.toString(), route))
+            .getJSONArray("outbounds").getJSONObject(0)
+        val tTarget = trojanRouted.getJSONObject("settings")
+            .getJSONArray("servers").getJSONObject(0)
+        check(tTarget.getString("password") == "secret-test-only")
+        check(tTarget.getString("address") == "127.0.0.1")
+        check(tTarget.getInt("port") == 19001)
+        check(trojanRouted.getJSONObject("streamSettings")
+            .getJSONObject("tlsSettings").getString("serverName") == "vpn.example")
+        val trojanXhttp = JSONObject(trojan.toString())
+        trojanXhttp.getJSONArray("outbounds").getJSONObject(0)
+            .getJSONObject("streamSettings").put("network", "xhttp")
+        val tx = JSONObject(BridgeXrayConfigRoute.apply(trojanXhttp.toString(), route))
+            .getJSONArray("outbounds").getJSONObject(0)
+        check(tx.getJSONObject("settings").getJSONArray("servers")
+            .getJSONObject(0).getString("password") == "secret-test-only")
+        check(tx.getJSONObject("streamSettings").getJSONObject("xhttpSettings")
+            .getString("host") == "vpn.example")
         println("M6_XHTTP_TCP_ROUTE_IDENTITY=PASS")
+        println("M6_TROJAN_TCP_ROUTE_IDENTITY=PASS")
     }
 }
