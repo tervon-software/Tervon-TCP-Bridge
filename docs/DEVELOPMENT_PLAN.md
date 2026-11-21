@@ -1350,3 +1350,12 @@ Operator verified **from a foreign VPS** the existing publicly advertised Bridge
 **Критерий следующей проверки:** перенести только два связанных файла; `flutter test test/trojan_subscription_test.dart` должен пройти и вернуть `FLUTTER_RC=0`; затем выполнить ранее отложенную `./gradlew --offline :app:compileDebugKotlin`. Реальные результаты записать после вывода Homeserver, не заменять их прошлым PASS.
 
 **Статус:** `TROJAN_GRPC_SOURCE=COMMITTED`, `DART_KOTLIN_TRANSFER=PENDING`, `FLUTTER_TEST=FAIL_AT_PREVIOUS_SOURCE`, `ANDROID_COMPILE=NOT_RUN`. Отсутствие `serviceName` нельзя использовать как искусственный фильтр выбора TCP-транспорта.
+
+
+### M6 — пользовательский интерфейс и жалоба на ERR_CONNECTION_CLOSED (21.11.2026)
+
+Оператор предоставил экран Android: переключатель «Обход DPI» включён, status `ACTIVE` показывает «Локальный маршрут Bridge готов. Передача через сервер ещё не подтверждена.»; одновременно мобильный браузер возвращает `ERR_CONNECTION_CLOSED` на `m.youtube.com`. Эти наблюдения относятся к разным уровням: Android `ACTIVE` означает подготовленный локальный TCP-маршрут, а браузер показывает фактическую ошибку сетевого соединения; причинность (mTLS Bridge / backend TCP / Xray / VPN dataplane) без сетевых журналов не установлена.
+
+По прямому замечанию пользователя убрана ненужная диагностическая формулировка из `stage4/bridge_settings_screen.dart`: при `ACTIVE` теперь `Обход DPI включён`, при загрузке — `Обход DPI включён/выключен` по сохранённому состоянию. Это изменение пользовательского текста, не новое свидетельство успешности передачи данных. Подробный код отказа остаётся в существующем диагностическом механизме. Изменение записано в GitHub; перенос нового Dart-источника на Homeserver и тесты после изменения пока не выполнялись.
+
+Следующее действие M6: собрать только связанные с отказом `ERR_CONNECTION_CLOSED` журналы Android Encapsulator и Android Decapsulator при воспроизведении сбоя, сопоставить время и тип отказа, исправлять только установленную причину. `M6_UI_WORDING=SOURCE_COMMITTED`; `M6_BROWSER_TRAFFIC=FAIL_OBSERVED`; `ROOT_CAUSE=NOT_IDENTIFIED`.
