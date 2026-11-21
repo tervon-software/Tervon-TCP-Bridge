@@ -13,7 +13,7 @@ import tempfile
 KOTLIN = Path("android/app/src/main/kotlin/com/tervonvpndpi/app")
 DART = Path("lib/vpn")
 ORIGINAL = {
-    KOTLIN / "VlessConfigParser.kt": ("4bb5f406ae0563a2ff84b635e4b86508f9d49085", "1977a9cdb61d5fdf7acc94c11183c94550ea985d"),
+    KOTLIN / "VlessConfigParser.kt": ("4bb5f406ae0563a2ff84b635e4b86508f9d49085", "3621481aa7d74ad1505db1ab85517517aaac2a14"),
     DART / "sub_parser.dart": ("8d1d320868fab622effb193189a36a022d491ea0", "1c92557a5bd7db7373c80c107ed6b1ef4295c055"),
 }
 NEW_SOURCES = {
@@ -38,9 +38,9 @@ def transform_parser(source):
         '            "vless_tcp" -> find {',
         '''            "trojan", "trojan_tcp", "trojan_ws", "trojan_grpc", "trojan_xhttp" -> find {
                 it.startsWith("trojan://", true) &&
-                    (preferred == "trojan" ||
+                    (preferred.equals("trojan", ignoreCase = true) ||
                      TrojanOutboundParser.transport(it) ==
-                         preferred!!.removePrefix("trojan_"))
+                         preferred?.lowercase(java.util.Locale.ROOT)?.removePrefix("trojan_"))
             }?.let { return it }
             "vless_tcp" -> find {''')
     source = single(source,
