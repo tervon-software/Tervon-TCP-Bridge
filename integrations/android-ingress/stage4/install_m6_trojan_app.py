@@ -13,8 +13,8 @@ import tempfile
 KOTLIN = Path("android/app/src/main/kotlin/com/tervonvpndpi/app")
 DART = Path("lib/vpn")
 ORIGINAL = {
-    KOTLIN / "VlessConfigParser.kt": "4bb5f406ae0563a2ff84b635e4b86508f9d49085",
-    DART / "sub_parser.dart": "8d1d320868fab622effb193189a36a022d491ea0",
+    KOTLIN / "VlessConfigParser.kt": ("4bb5f406ae0563a2ff84b635e4b86508f9d49085", "1977a9cdb61d5fdf7acc94c11183c94550ea985d"),
+    DART / "sub_parser.dart": ("8d1d320868fab622effb193189a36a022d491ea0", "8c8ea0052b09a38207fdaee4f37e2c42f00a8e6f"),
 }
 NEW_SOURCES = {
     KOTLIN / "TrojanOutboundParser.kt": "integrations/android-ingress/stage4/TrojanOutboundParser.kt",
@@ -130,14 +130,14 @@ def main():
             print("M6_TROJAN=BLOCKED_MISSING_APP_SOURCE")
             return 1
         current = target.read_bytes()
-        before = ORIGINAL[rel]
+        before, after = ORIGINAL[rel]
         try:
-            # Do not rewrite already installed or unexpectedly changed source.
+            # Accept only exact known current or expected post-apply Git blobs.
             if blob(current) == before:
                 updated = transform(current.decode("utf-8")).encode("utf-8")
-            elif "TrojanOutboundParser.create(url)" in current.decode("utf-8") and rel.name.endswith(".kt"):
-                updated = current
-            elif "trojan_tcp" in current.decode("utf-8") and rel.suffix == ".dart":
+                if blob(updated) != after:
+                    raise ValueError("transformed source differs from reviewed candidate")
+            elif blob(current) == after:
                 updated = current
             else:
                 print("M6_TROJAN=BLOCKED_SOURCE_MISMATCH")
