@@ -1337,3 +1337,16 @@ Operator verified **from a foreign VPS** the existing publicly advertised Bridge
 
 
 **Дополнительная проверка исходников M6 universal TCP (изолированная среда, 21.11.2026):** два файла `BridgeVlessRoutePlan.kt` и `BridgeVlessRoutePlanTest.kt` скопированы из актуального GitHub и сверены по Git blob SHA: `2decc9dba44d7e8295d26c69d9f623ee8e99de94` и `297a1e26eda19b15c91992637736ce4803905067`. Выполнена команда `kotlinc BridgeVlessRoutePlan.kt BridgeVlessRoutePlanTest.kt -include-runtime -d policy.jar && java -cp policy.jar com.tervonvpndpi.app.BridgeVlessRoutePlanTest`; вывод `M6_ANY_TCP_ROUTE_POLICY=PASS`. Эта проверка относится только к автономной Kotlin routing policy; Go registrar, Android JSON router, полный Android compile и серверные тесты на данном commit ещё ожидаются.
+
+
+### M6 — исправление отказа Trojan gRPC из теста Homeserver (21.11.2026)
+
+**Результат оператора:** `M6_ANY_TCP_SOURCE_APPLIED=PASS`, `M6_FILES_TO_UPDATE=0` после повторной проверки. `flutter test test/trojan_subscription_test.dart` вернул FAIL: ожидался `trojan_grpc`, фактически доступные типы `trojan_tcp,trojan_ws,trojan_xhttp`; `FLUTTER_RC=1`, `KOTLIN_RC=NOT_RUN`. Пакеты `flutter pub` успешно разрешены; сообщение о 40 обновлениях зависимостей не является причиной этого отказа.
+
+**Найденная причина по фактическим GitHub исходникам:** установленный `lib/vpn/sub_parser.dart` после предыдущего Trojan source transfer исключает gRPC URL без `serviceName` дополнительным условием `if (normalized == 'grpc' && (params['servicename'] ?? '').isEmpty) return null;`. Соответствующий `TrojanOutboundParser.kt` также преждевременно отклоняет gRPC без имени и `create()` возвращает null для пустого имени. При этом тест поставляет `trojan://...?...type=grpc` без `serviceName`. Эта проверка не является требованием универсального TCP Bridge.
+
+**Исправление:** из исходника `stage4/TrojanOutboundParser.kt` удалены обе проверки обязательности `grpc serviceName`; Xray JSON `grpcSettings.serviceName` оставлен как существующее пустое значение по умолчанию, без генерации собственного имени или изменения других полей. `stage4/TrojanOutboundParserTest.kt` дополнен тестом gRPC с пустым и непустым `serviceName`. Добавлен `stage4/apply_m6_trojan_grpc_fix.py` для внесения единственной правки строки в уже установленный Dart `sub_parser.dart` и согласованной версии Kotlin `TrojanOutboundParser.kt`, с предварительной сверкой Git blobs и сохранением файлов приложения при несоответствии. Работающие службы не затронуты.
+
+**Критерий следующей проверки:** перенести только два связанных файла; `flutter test test/trojan_subscription_test.dart` должен пройти и вернуть `FLUTTER_RC=0`; затем выполнить ранее отложенную `./gradlew --offline :app:compileDebugKotlin`. Реальные результаты записать после вывода Homeserver, не заменять их прошлым PASS.
+
+**Статус:** `TROJAN_GRPC_SOURCE=COMMITTED`, `DART_KOTLIN_TRANSFER=PENDING`, `FLUTTER_TEST=FAIL_AT_PREVIOUS_SOURCE`, `ANDROID_COMPILE=NOT_RUN`. Отсутствие `serviceName` нельзя использовать как искусственный фильтр выбора TCP-транспорта.
