@@ -100,7 +100,7 @@ func TestDiscoveryTransportCapabilities(t *testing.T) {
     _,caPEM,caKey:=testCertificateInputs(t,now)
     h:=&BridgeEnrollmentHTTP{
         RemoteURL:"https://bridge.example/v2/stream", ServerName:"bridge.example",
-        Service:"vpn", TransportServices:map[string]string{"tcp":"vpn","xhttp":"vpn-xhttp"},
+        Service:"vpn", TransportServices:map[string]string{"tcp":"vpn","xhttp":"vpn-xhttp","trojan_tcp":"vpn-trojan","trojan_xhttp":"vpn-trojan-xhttp"},
         ClientCAPEM:caPEM, ServerCAPEM:caPEM, ClientCAKey:caKey,
         Activate:func(string)error{return nil},
     }
@@ -111,7 +111,9 @@ func TestDiscoveryTransportCapabilities(t *testing.T) {
     if rr.Code!=http.StatusOK { t.Fatalf("bad status %d",rr.Code) }
     var resp bridgeDiscoveryResponse
     if err:=json.Unmarshal(rr.Body.Bytes(),&resp);err!=nil {t.Fatal(err)}
-    if resp.TransportServices["tcp"]!="vpn" || resp.TransportServices["xhttp"]!="vpn-xhttp" {
+    if resp.TransportServices["tcp"]!="vpn" || resp.TransportServices["xhttp"]!="vpn-xhttp" ||
+        resp.TransportServices["trojan_tcp"]!="vpn-trojan" ||
+        resp.TransportServices["trojan_xhttp"]!="vpn-trojan-xhttp" {
         t.Fatalf("incomplete capability map: %v",resp.TransportServices)
     }
     wrong:=*h
