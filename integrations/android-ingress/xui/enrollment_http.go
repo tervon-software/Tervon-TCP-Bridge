@@ -25,7 +25,6 @@ type BridgeEnrollmentHTTP struct {
     RemoteURL string
     ServerName string
     Service string
-    TransportServices map[string]string // legacy discovery only; do not use for routing
     TCPRoutes map[string]string // decimal backend port -> operator-authorized service
     ClientCAPEM []byte
     ServerCAPEM []byte // existing public server trust root for Android Bridge TLS
@@ -39,7 +38,6 @@ type bridgeDiscoveryResponse struct {
     RemoteURL string `json:"remote_url,omitempty"`
     ServerName string `json:"server_name,omitempty"`
     Service string `json:"service,omitempty"`
-    TransportServices map[string]string `json:"transport_services,omitempty"`
     TCPRoutes map[string]string `json:"tcp_routes,omitempty"`
     ClientCA string `json:"client_ca,omitempty"`
     ServerCA string `json:"server_ca,omitempty"`
@@ -72,14 +70,6 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
             return nil, errors.New("invalid advertised TCP route")
         }
     }
-    // Legacy transport_services is tolerated only for old tests/clients;
-    // the active registrar publishes tcp_routes exclusively.
-    for transport, service := range h.TransportServices {
-        if transport == "" || service == "" ||
-            strings.ContainsAny(transport + service, " /@\\\\") {
-            return nil, errors.New("invalid legacy Bridge service mapping")
-        }
-    }
     now := h.Now
     if now == nil { now = time.Now }
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +86,6 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
             _ = json.NewEncoder(w).Encode(bridgeDiscoveryResponse{
                 Available:true, RemoteURL:h.RemoteURL,
                 ServerName:h.ServerName,Service:h.Service,
-                TransportServices:h.TransportServices,
                 TCPRoutes:h.TCPRoutes,
                 ClientCA:string(h.ClientCAPEM), ServerCA:string(h.ServerCAPEM),
             })
