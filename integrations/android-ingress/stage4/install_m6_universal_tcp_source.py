@@ -26,7 +26,7 @@ REVISIONS = {
     ),
     "BridgeXrayConfigRoute.kt": (
         "c97f107e361f2573cf11ca0e233b32ef16ed1b73",
-        "1944e0f84de270e4d12d586cd60edcaa2794d608",
+        "408515a31ad31faa0b3acc72e1265670e4cef938",
     ),
     "BridgeAutoEnrollmentHttp.kt": (
         "c136e8da473b2ae17c92a33dd0dd98a94d3f7f7c",
