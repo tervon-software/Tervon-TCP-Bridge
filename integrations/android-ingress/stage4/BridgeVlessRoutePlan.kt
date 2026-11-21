@@ -3,23 +3,25 @@ package com.tervonvpndpi.app
 /**
  * Routing decision only. Never changes VPN configuration or starts Bridge.
  * The caller must establish the authorized mTLS Bridge, check local readiness,
- * and identify the selected VLESS/Trojan TCP or TCP-based XHTTP destination.
+ * and identify the selected destination of any TCP-capable VPN outbound.
  */
 internal object BridgeVlessRoutePlan {
-    // Xray calls its normal TCP stream "tcp" or "raw"; omitted network also defaults to TCP.
-    fun isTcpTransport(network: String?): Boolean = when (network?.lowercase(java.util.Locale.ROOT)) {
-        null, "", "tcp", "raw" -> true
+    // Bridge is protocol-blind. Only the Xray stream's network stack matters:
+    // TCP-capable transports may carry arbitrary payloads; UDP/QUIC cannot.
+    fun isTcpTransport(network: String?): Boolean = when (
+        network?.lowercase(java.util.Locale.ROOT)
+    ) {
+        null, "", "tcp", "raw", "ws", "grpc", "httpupgrade", "http",
+        "h2", "xhttp", "splithttp" -> true
         else -> false
     }
 
-    // XHTTP uses TCP when Xray establishes HTTP/1.1 or HTTP/2; H3/QUIC is
-    // intentionally outside this integration. The caller must reject H3.
-    fun isSupportedTransport(network: String?): Boolean =
-        isTcpTransport(network) || network.equals("xhttp", ignoreCase = true) ||
-            network.equals("splithttp", ignoreCase = true)
+    // Compatibility for the already integrated M6 callers/tests.
+    fun isSupportedTransport(network: String?): Boolean = isTcpTransport(network)
 
     fun transportKey(network: String?): String =
-        if (network.equals("xhttp", true) || network.equals("splithttp", true)) "xhttp" else "tcp"
+        if (network.equals("xhttp", true) || network.equals("splithttp", true))
+            "xhttp" else "tcp"
 
     data class Endpoint(val host: String, val port: Int)
     data class Route(val remote: Endpoint, val local: Endpoint)
@@ -37,7 +39,6 @@ internal object BridgeVlessRoutePlan {
 
     fun decide(
         enabled: Boolean,
-        protocol: String,
         transport: String,
         activeServer: Endpoint?,
         subscriptionVerified: Boolean,
@@ -45,8 +46,7 @@ internal object BridgeVlessRoutePlan {
         bridgeReady: Boolean
     ): Decision {
         if (!enabled) return Decision.Direct
-        if (protocol.lowercase(java.util.Locale.ROOT) !in setOf("vless", "trojan") ||
-            !isSupportedTransport(transport)) {
+        if (!isTcpTransport(transport)) {
             return Decision.Blocked(Reason.UNSUPPORTED_TRANSPORT)
         }
         if (activeServer == null || !validRemote(activeServer)) {
