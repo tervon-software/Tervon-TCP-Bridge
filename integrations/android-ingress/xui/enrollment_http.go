@@ -65,7 +65,8 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
             return nil, errors.New("Bridge TCP transport service mismatch")
         }
         for transport, svc := range h.TransportServices {
-            if (transport != "tcp" && transport != "xhttp") || svc == "" {
+            if (transport != "tcp" && transport != "xhttp" &&
+                transport != "trojan_tcp" && transport != "trojan_xhttp") || svc == "" {
                 return nil, errors.New("unknown Bridge transport service")
             }
         }
