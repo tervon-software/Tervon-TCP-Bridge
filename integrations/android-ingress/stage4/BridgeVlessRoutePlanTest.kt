@@ -15,6 +15,10 @@ internal object BridgeVlessRoutePlanTest {
 
         check(plan(enabled = false) is BridgeVlessRoutePlan.Decision.Direct)
         check(plan(protocol = "hysteria2") == BridgeVlessRoutePlan.Decision.Blocked(BridgeVlessRoutePlan.Reason.UNSUPPORTED_TRANSPORT))
+        check(plan(protocol = "trojan", transport = "tcp") is BridgeVlessRoutePlan.Decision.ThroughBridge)
+        check(plan(protocol = "trojan", transport = "xhttp") is BridgeVlessRoutePlan.Decision.ThroughBridge)
+        check(plan(protocol = "trojan", transport = "grpc") ==
+            BridgeVlessRoutePlan.Decision.Blocked(BridgeVlessRoutePlan.Reason.UNSUPPORTED_TRANSPORT))
         check(plan(transport = "xhttp") is BridgeVlessRoutePlan.Decision.ThroughBridge)
         check(plan(transport = "splithttp") is BridgeVlessRoutePlan.Decision.ThroughBridge)
         check(BridgeVlessRoutePlan.transportKey("xhttp") == "xhttp")
