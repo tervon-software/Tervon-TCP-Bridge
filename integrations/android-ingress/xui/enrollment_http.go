@@ -9,6 +9,7 @@ import (
     "net/url"
     "strings"
     "strconv"
+    "regexp"
     "time"
 )
 
@@ -65,8 +66,75 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
     for port, service := range h.TCPRoutes {
         n, err := strconv.Atoi(port)
         if err != nil || n < 1 || n > 65535 || strconv.Itoa(n) != port ||
-            len(service) == 0 || len(service) > 64 ||
-            strings.ContainsAny(service, " /@\\\\") {
+            !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}package xui
+
+import (
+    "crypto"
+    "encoding/json"
+    "errors"
+    "io"
+    "net/http"
+    "net/url"
+    "strings"
+    "strconv"
+    "regexp"
+    "time"
+)
+
+// BridgeEnrollmentHTTP provides the two operations requested for M6:
+// discover whether this server has Bridge, then sign an Android CSR.
+// VPN user authorization remains in Xray; no subscription eligibility check.
+// Mount on the existing subscription HTTPS server, not a second public service.
+//
+// Activation MUST atomically install the issued leaf fingerprint into the
+// corresponding configured Bridge ACL AND make that ACL effective before
+// returning nil. Current v1.0.1 reads its ACL at process startup.
+// This handler never silently skips activation or changes live services.
+type BridgeEnrollmentHTTP struct {
+    RemoteURL string
+    ServerName string
+    Service string
+    TCPRoutes map[string]string // decimal backend port -> operator-authorized service
+    ClientCAPEM []byte
+    ServerCAPEM []byte // existing public server trust root for Android Bridge TLS
+    ClientCAKey crypto.Signer
+    Activate func(fingerprint string) error
+    Now func() time.Time
+}
+
+type bridgeDiscoveryResponse struct {
+    Available bool `json:"available"`
+    RemoteURL string `json:"remote_url,omitempty"`
+    ServerName string `json:"server_name,omitempty"`
+    Service string `json:"service,omitempty"`
+    TCPRoutes map[string]string `json:"tcp_routes,omitempty"`
+    ClientCA string `json:"client_ca,omitempty"`
+    ServerCA string `json:"server_ca,omitempty"`
+}
+
+type bridgeEnrollmentResponse struct {
+    Certificate string `json:"certificate"`
+}
+
+// Handler intentionally exposes only GET discovery and POST CSR enrollment.
+// It assumes its parent subscription web server provides HTTPS; when TLS is
+// terminated by a trusted reverse proxy, the parent must enforce HTTPS there.
+func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
+    if h == nil || h.ClientCAKey == nil || h.Activate == nil ||
+        len(h.ClientCAPEM) == 0 || len(h.ServerCAPEM) == 0 || h.Service == "" || h.ServerName == "" {
+        return nil, errors.New("Bridge registration is not configured")
+    }
+    u, err := url.Parse(h.RemoteURL)
+    if err != nil || u.Scheme != "https" || u.Host == "" ||
+        u.User != nil || u.RawQuery != "" || u.Fragment != "" ||
+        u.Path != "/v2/stream" || u.RawPath != "" {
+        return nil, errors.New("invalid configured Bridge endpoint")
+    }
+    // A service is an opaque identifier; never privilege protocol names.
+    for port, service := range h.TCPRoutes {
+        n, err := strconv.Atoi(port)
+        if err != nil || n < 1 || n > 65535 || strconv.Itoa(n) != port ||
+).MatchString(service) {
             return nil, errors.New("invalid advertised TCP route")
         }
     }
