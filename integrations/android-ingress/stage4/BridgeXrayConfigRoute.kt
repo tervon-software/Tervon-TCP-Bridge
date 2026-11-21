@@ -4,8 +4,8 @@ import org.json.JSONObject
 
 /**
  * Applies an ALREADY AUTHORIZED, READY, locally listening Bridge route to one
- * generated Xray VLESS TCP or TCP-based XHTTP outbound. It never starts Bridge.
- * Keeps UUID, flow, transport mode and routing. Preserves effective HTTP Host
+ * generated Xray VLESS or Trojan TCP-based outbound. It never starts Bridge.
+ * Keeps VLESS UUID/Trojan password, flow, transport mode and routing. Preserves HTTP Host
  * and TLS SNI explicitly when Xray would derive them from the old destination.
  */
 internal object BridgeXrayConfigRoute {
@@ -16,19 +16,22 @@ internal object BridgeXrayConfigRoute {
             .filter { it.optString("tag") == "proxy" }
         require(matching.size == 1) { "Exactly one proxy outbound required" }
         val proxy = matching.single()
-        require(proxy.optString("protocol") == "vless") { "Only VLESS supported" }
+        val protocol = proxy.optString("protocol").lowercase(java.util.Locale.ROOT)
+        require(protocol == "vless" || protocol == "trojan") { "Only VLESS/Trojan supported" }
         val stream = proxy.optJSONObject("streamSettings") ?: JSONObject().also {
             proxy.put("streamSettings", it)
         }
         val network = stream.optString("network")
         require(BridgeVlessRoutePlan.isSupportedTransport(network)) { "Only TCP-based VLESS supported" }
-        val vnext = proxy.getJSONObject("settings").getJSONArray("vnext")
-        require(vnext.length() == 1) { "Exactly one destination required" }
-        val destination = vnext.getJSONObject(0)
+        val serverArray = proxy.getJSONObject("settings").getJSONArray(
+            if (protocol == "trojan") "servers" else "vnext"
+        )
+        require(serverArray.length() == 1) { "Exactly one destination required" }
+        val destination = serverArray.getJSONObject(0)
         require(destination.getString("address").trimEnd('.').equals(
             route.remote.host.trimEnd('.'), ignoreCase = true
         ) && destination.getInt("port") == route.remote.port) {
-            "Current VLESS destination does not match the authorized Bridge target"
+            "Current VPN destination does not match the authorized Bridge target"
         }
         require(route.local.host == "127.0.0.1" && route.local.port in 1024..65535) {
             "Bridge route must use verified local IPv4 listener"
