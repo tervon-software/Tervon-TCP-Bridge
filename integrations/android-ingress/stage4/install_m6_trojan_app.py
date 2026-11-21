@@ -87,6 +87,11 @@ def transform_dart(source):
       };
       if (normalized == null) return null;
       if ((params['security'] ?? 'tls').toLowerCase() != 'tls') return null;
+      if ((params['alpn'] ?? '').toLowerCase().split(',').contains('h3')) return null;
+      if (normalized == 'grpc' && (params['servicename'] ?? '').isEmpty) return null;
+      final uri = Uri.tryParse(line);
+      if (uri == null || uri.host.isEmpty || uri.userInfo.isEmpty ||
+          !uri.hasPort || uri.port < 1 || uri.port > 65535) return null;
       return 'trojan_$normalized';
     }
 
