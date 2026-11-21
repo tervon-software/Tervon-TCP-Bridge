@@ -55,9 +55,9 @@ internal class BridgeAutoEnrollmentHttp(
         }
         // The HTTPS subscription can be served on its own port (e.g. 2096).
         // Discovery uses ONLY the subscription host and the existing HTTPS
-        // web server on 443. Never send the secret subscription path/query
+        // default HTTPS origin. Never send the secret subscription path/query
         // to discovery or try to register against the 3x-ui subscription port.
-        URL("https", origin.host, 443, "/.well-known/tervon-bridge")
+        URL("https", origin.host, "/.well-known/tervon-bridge")
     }
 
     /** Stable certificate-store identity is the HTTPS subscription authority, not camouflage SNI. */
