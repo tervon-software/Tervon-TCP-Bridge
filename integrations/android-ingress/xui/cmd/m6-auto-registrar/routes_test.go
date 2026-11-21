@@ -33,3 +33,21 @@ func TestConfiguredTransportServicesOnlyAdvertisesExistingRoutes(t *testing.T) {
     if err != nil {t.Fatal(err)}
     if len(routes)!=1 || len(services)!=1 {t.Fatal("empty XHTTP route advertised")}
 }
+
+func TestConfiguredTransportServicesIncludesTrojanWithoutPortsInCode(t *testing.T) {
+    root := t.TempDir()
+    if err := os.MkdirAll(filepath.Join(root, "config"), 0700); err != nil {t.Fatal(err)}
+    contents := `{"mode":"server","listen":"0.0.0.0:8443","routes":{
+      "vpn":[{"address":"host.docker.internal:49312"}],
+      "vpn-trojan":[{"address":"host.docker.internal:48111"}],
+      "vpn-trojan-xhttp":[{"address":"host.docker.internal:47391"}]}}`
+    if err := os.WriteFile(filepath.Join(root, "config/server.json"), []byte(contents), 0600); err != nil {t.Fatal(err)}
+    routes, services, err := configuredTransportServices(root)
+    if err != nil {t.Fatal(err)}
+    if routes["trojan_tcp"] != "vpn-trojan" || routes["trojan_xhttp"] != "vpn-trojan-xhttp" {
+        t.Fatalf("missing Trojan discovery: %v", routes)
+    }
+    if len(services) != 3 || services[1] != "vpn-trojan" || services[2] != "vpn-trojan-xhttp" {
+        t.Fatalf("Trojan ACL mismatch: %v", services)
+    }
+}
