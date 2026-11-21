@@ -17,7 +17,6 @@ internal object TrojanOutboundParser {
         if (!(parsed["security"] ?: "tls").equals("tls", ignoreCase = true)) return null
         if (parsed["alpn"].orEmpty().split(",").any { it.equals("h3", ignoreCase = true) }) return null
         val transport = (parsed["type"] ?: "tcp").lowercase(Locale.ROOT)
-        if (transport == "grpc" && parsed["servicename"].isNullOrBlank()) return null
         return when (transport) {
             "", "tcp", "raw" -> "tcp"
             "ws", "websocket" -> "ws"
@@ -96,7 +95,6 @@ internal object TrojanOutboundParser {
             }
             "grpc" -> {
                 val service = values["servicename"].orEmpty()
-                if (service.isEmpty()) return null
                 stream.put("grpcSettings", JSONObject().put("serviceName", service))
             }
             "xhttp" -> {
