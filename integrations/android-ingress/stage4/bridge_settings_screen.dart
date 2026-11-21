@@ -29,9 +29,7 @@ class _BridgeSettingsScreenState extends State<BridgeSettingsScreen> {
       if (!mounted) return;
       setState(() {
         _enabled = data?['enabled'] == true;
-        _message = data?['runtimeIntegrated'] == true
-            ? 'Bridge: локальный маршрут готов, связь с сервером не подтверждена'
-            : 'Bridge: маршрутизация пока не активна';
+        _message = _enabled ? 'Обход DPI включён' : 'Обход DPI выключен';
       });
     } catch (_) {
       if (mounted) setState(() => _message = 'Не удалось прочитать состояние Bridge');
@@ -89,7 +87,7 @@ class _BridgeSettingsScreenState extends State<BridgeSettingsScreen> {
         _enabled = data?['enabled'] == true;
         _message = switch (state) {
           'DISABLED' => 'Обход DPI выключен',
-          'ACTIVE' => 'Локальный маршрут Bridge готов. Передача через сервер ещё не подтверждена.',
+          'ACTIVE' => 'Обход DPI включён',
           'PREPARED' => 'Сертификат готов. Bridge включится при следующем подключении VPN.',
           'DIRECT_FALLBACK' => 'Bridge не включился: $reason. Прямой VPN сохранён.',
           'RESTART_FAILED' => 'Не удалось перезапустить VPN: $reason',
