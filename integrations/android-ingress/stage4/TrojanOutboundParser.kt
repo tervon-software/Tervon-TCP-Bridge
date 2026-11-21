@@ -14,7 +14,11 @@ import java.util.Locale
 internal object TrojanOutboundParser {
     fun transport(url: String): String? {
         val parsed = parseUrl(url) ?: return null
-        return when ((parsed["type"] ?: "tcp").lowercase(Locale.ROOT)) {
+        if (!(parsed["security"] ?: "tls").equals("tls", ignoreCase = true)) return null
+        if (parsed["alpn"].orEmpty().split(",").any { it.equals("h3", ignoreCase = true) }) return null
+        val transport = (parsed["type"] ?: "tcp").lowercase(Locale.ROOT)
+        if (transport == "grpc" && parsed["servicename"].isNullOrBlank()) return null
+        return when (transport) {
             "", "tcp", "raw" -> "tcp"
             "ws", "websocket" -> "ws"
             "grpc" -> "grpc"
