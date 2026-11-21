@@ -105,31 +105,53 @@ func discoverBridgeEndpoint(root, containerID, service string, serverCAPEM []byt
     return "https://" + net.JoinHostPort(name, strconv.Itoa(port)) + "/v2/stream", name, nil
 }
 
-// Transport service names are advertised only when the existing Bridge
-// configuration has a server-side route. This function never adds a route.
-func configuredTransportServices(root string) (map[string]string, []string, error) {
+// This lookup is about TCP backend ports, never the VPN protocol within
+// the stream. The existing Bridge server owns both routes and ACL.
+func configuredTCPRoutes(root string) (map[string]string, []string, error) {
     data, err := os.ReadFile(filepath.Join(root, "config/server.json"))
     if err != nil { return nil, nil, err }
     var cfg bridgeRuntimeConfig
     if err := json.Unmarshal(data, &cfg); err != nil { return nil, nil, err }
-    if cfg.Mode != "server" || len(cfg.Routes["vpn"]) == 0 {
-        return nil, nil, errors.New("TCP Bridge backend unavailable")
+    if cfg.Mode != "server" || len(cfg.Routes) == 0 {
+        return nil, nil, errors.New("Bridge TCP routes unavailable")
     }
-    transports := map[string]string{"tcp": "vpn"}
-    services := []string{"vpn"}
-    if len(cfg.Routes["vpn-xhttp"]) > 0 {
-        transports["xhttp"] = "vpn-xhttp"
-        services = append(services, "vpn-xhttp")
+    services := make([]string, 0, len(cfg.Routes))
+    for name := range cfg.Routes {
+        services = append(services, name)
     }
-    if len(cfg.Routes["vpn-trojan"]) > 0 {
-        transports["trojan_tcp"] = "vpn-trojan"
-        services = append(services, "vpn-trojan")
+    sort.Strings(services)
+    ports := make(map[string]string)
+    for _, name := range services {
+        if len(name) > 64 || name == "" || strings.ContainsAny(name, " /@\\\\") {
+            return nil, nil, errors.New("invalid Bridge service identifier")
+        }
+        backends := cfg.Routes[name]
+        if len(backends) == 0 {
+            return nil, nil, errors.New("Bridge route has no backend")
+        }
+        for _, backend := range backends {
+            var endpoint struct {
+                Address string
+            }
+            if err := json.Unmarshal(backend, &endpoint); err != nil {
+                return nil, nil, errors.New("invalid Bridge backend")
+            }
+            host, port, err := net.SplitHostPort(endpoint.Address)
+            if err != nil || host == "" {
+                return nil, nil, errors.New("invalid Bridge backend address")
+            }
+            n, err := strconv.Atoi(port)
+            if err != nil || n < 1 || n > 65535 {
+                return nil, nil, errors.New("invalid Bridge backend port")
+            }
+            key := strconv.Itoa(n)
+            if other, exists := ports[key]; exists && other != name {
+                return nil, nil, errors.New("ambiguous TCP backend port")
+            }
+            ports[key] = name
+        }
     }
-    if len(cfg.Routes["vpn-trojan-xhttp"]) > 0 {
-        transports["trojan_xhttp"] = "vpn-trojan-xhttp"
-        services = append(services, "vpn-trojan-xhttp")
-    }
-    return transports, services, nil
+    return ports, services, nil
 }
 
 func main() {
@@ -154,10 +176,11 @@ func main() {
     if err != nil { log.Fatal("existing client CA signer unavailable") }
     signer, err := clientCASigner(privatePEM)
     if err != nil { log.Fatal(err) }
-    const service = "vpn" // existing M6 service identifier, not a destination
-    remote, serverName, err := discoverBridgeEndpoint(root, containerID, service, serverCAPEM)
+    ports, services, err := configuredTCPRoutes(root)
     if err != nil { log.Fatal(err) }
-    transports, services, err := configuredTransportServices(root)
+    // The service identifier is opaque; no VPN protocol is privileged here.
+    service := services[0]
+    remote, serverName, err := discoverBridgeEndpoint(root, containerID, service, serverCAPEM)
     if err != nil { log.Fatal(err) }
     activator := &xui.HotACLActivator{
         Path:filepath.Join(root,"config/server.json"), Service:service, Services:services,
@@ -167,7 +190,7 @@ func main() {
         }.Confirm,
     }
     enrollment := &xui.BridgeEnrollmentHTTP{
-        RemoteURL:remote, ServerName:serverName, Service:service, TransportServices:transports,
+        RemoteURL:remote, ServerName:serverName, Service:service, TCPRoutes:ports,
         ClientCAPEM:clientCAPEM, ServerCAPEM:serverCAPEM, ClientCAKey:signer,
         Activate:func(fingerprint string) error {
             ctx,cancel := context.WithTimeout(context.Background(),15*time.Second)
