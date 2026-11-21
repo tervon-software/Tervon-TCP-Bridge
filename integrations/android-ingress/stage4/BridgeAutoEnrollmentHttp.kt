@@ -111,11 +111,14 @@ internal class BridgeAutoEnrollmentHttp(
             require(advertised.optString("tcp") == "vpn") {
                 "Bridge default TCP service mismatch"
             }
-            val xhttp = advertised.optString("xhttp")
-            if (xhttp.isNotEmpty()) {
-                require(xhttp.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")) &&
-                        xhttp != "vpn") { "invalid XHTTP service" }
-                routes["xhttp"] = xhttp
+            for (key in listOf("xhttp", "trojan_tcp", "trojan_xhttp")) {
+                val value = advertised.optString(key)
+                if (value.isEmpty()) continue
+                require(value.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")) &&
+                        value != "vpn" && value !in routes.values) {
+                    "invalid or duplicate Bridge service"
+                }
+                routes[key] = value
             }
         }
         val clientCa = data.getString("client_ca")
