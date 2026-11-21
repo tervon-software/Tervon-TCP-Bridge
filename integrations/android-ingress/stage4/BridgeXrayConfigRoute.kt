@@ -14,7 +14,11 @@ internal object BridgeXrayConfigRoute {
     fun destination(proxy: JSONObject): JSONObject {
         val settings = proxy.getJSONObject("settings")
         val keys = listOf("vnext", "servers").filter { settings.has(it) }
-        require(keys.size == 1) { "Exactly one TCP destination list required" }
+        val direct = settings.has("address") && settings.has("port")
+        require(keys.size + (if (direct) 1 else 0) == 1) {
+            "Exactly one TCP destination shape required"
+        }
+        if (direct) return settings
         val entries = settings.getJSONArray(keys.single())
         require(entries.length() == 1) { "Exactly one TCP destination required" }
         return entries.getJSONObject(0)
@@ -102,6 +106,12 @@ internal object BridgeXrayConfigRoute {
         }
         // Preserve implicit HTTP authority when the original remote hostname
         // would otherwise be replaced by 127.0.0.1 in generated Xray.
+        if (network.equals("grpc", true)) {
+            val grpc = stream.optJSONObject("grpcSettings") ?: JSONObject().also {
+                stream.put("grpcSettings", it)
+            }
+            if (grpc.optString("authority").isEmpty()) grpc.put("authority", originalHost)
+        }
         if (network.equals("ws", true)) {
             val ws = stream.optJSONObject("wsSettings") ?: JSONObject().also {
                 stream.put("wsSettings", it)
