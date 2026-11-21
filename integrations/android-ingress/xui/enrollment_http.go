@@ -8,6 +8,7 @@ import (
     "net/http"
     "net/url"
     "strings"
+    "strconv"
     "time"
 )
 
@@ -24,7 +25,8 @@ type BridgeEnrollmentHTTP struct {
     RemoteURL string
     ServerName string
     Service string
-    TransportServices map[string]string // optional advertised service mapping
+    TransportServices map[string]string // legacy discovery only; do not use for routing
+    TCPRoutes map[string]string // decimal backend port -> operator-authorized service
     ClientCAPEM []byte
     ServerCAPEM []byte // existing public server trust root for Android Bridge TLS
     ClientCAKey crypto.Signer
@@ -38,6 +40,7 @@ type bridgeDiscoveryResponse struct {
     ServerName string `json:"server_name,omitempty"`
     Service string `json:"service,omitempty"`
     TransportServices map[string]string `json:"transport_services,omitempty"`
+    TCPRoutes map[string]string `json:"tcp_routes,omitempty"`
     ClientCA string `json:"client_ca,omitempty"`
     ServerCA string `json:"server_ca,omitempty"`
 }
@@ -60,15 +63,21 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
         u.Path != "/v2/stream" || u.RawPath != "" {
         return nil, errors.New("invalid configured Bridge endpoint")
     }
-    if len(h.TransportServices) > 0 {
-        if h.TransportServices["tcp"] != h.Service {
-            return nil, errors.New("Bridge TCP transport service mismatch")
+    // A service is an opaque identifier; never privilege protocol names.
+    for port, service := range h.TCPRoutes {
+        n, err := strconv.Atoi(port)
+        if err != nil || n < 1 || n > 65535 || strconv.Itoa(n) != port ||
+            len(service) == 0 || len(service) > 64 ||
+            strings.ContainsAny(service, " /@\\\\") {
+            return nil, errors.New("invalid advertised TCP route")
         }
-        for transport, svc := range h.TransportServices {
-            if (transport != "tcp" && transport != "xhttp" &&
-                transport != "trojan_tcp" && transport != "trojan_xhttp") || svc == "" {
-                return nil, errors.New("unknown Bridge transport service")
-            }
+    }
+    // Legacy transport_services is tolerated only for old tests/clients;
+    // the active registrar publishes tcp_routes exclusively.
+    for transport, service := range h.TransportServices {
+        if transport == "" || service == "" ||
+            strings.ContainsAny(transport + service, " /@\\\\") {
+            return nil, errors.New("invalid legacy Bridge service mapping")
         }
     }
     now := h.Now
@@ -88,6 +97,7 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
                 Available:true, RemoteURL:h.RemoteURL,
                 ServerName:h.ServerName,Service:h.Service,
                 TransportServices:h.TransportServices,
+                TCPRoutes:h.TCPRoutes,
                 ClientCA:string(h.ClientCAPEM), ServerCA:string(h.ServerCAPEM),
             })
         case http.MethodPost:
