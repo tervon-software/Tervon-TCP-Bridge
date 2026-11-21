@@ -255,6 +255,7 @@ func configuredTCPRoutes(root string) (map[string]string, []string, error) {
         if len(backends) == 0 {
             return nil, nil, errors.New("Bridge route has no backend")
         }
+        servicePort := ""
         for _, backend := range backends {
             var endpoint struct {
                 Address string
@@ -271,6 +272,12 @@ func configuredTCPRoutes(root string) (map[string]string, []string, error) {
                 return nil, nil, errors.New("invalid Bridge backend port")
             }
             key := strconv.Itoa(n)
+            // A single Bridge service must not round-robin between different
+            // public TCP ports after the client selected its target.
+            if servicePort != "" && servicePort != key {
+                return nil, nil, errors.New("ambiguous backend ports within service")
+            }
+            servicePort = key
             if other, exists := ports[key]; exists && other != name {
                 return nil, nil, errors.New("ambiguous TCP backend port")
             }
