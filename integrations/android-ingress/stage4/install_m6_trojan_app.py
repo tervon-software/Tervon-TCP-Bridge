@@ -21,7 +21,7 @@ NEW_SOURCES = {
     Path("test/trojan_subscription_test.dart"): "integrations/android-ingress/stage4/trojan_subscription_test.dart",
 }
 NEW_SOURCE_BLOBS = {
-    KOTLIN / "TrojanOutboundParser.kt": "e3fb508317ac15ef4c5adf8c7cd849a0dd5b2c50",
+    KOTLIN / "TrojanOutboundParser.kt": "34642fe5363db16ad0198b6a0a75ed70f562a2fd",
     Path("test/trojan_subscription_test.dart"): "6ab113564fbca9f0580c1c51ec6f6c1e8a268e2f",
 }
 
