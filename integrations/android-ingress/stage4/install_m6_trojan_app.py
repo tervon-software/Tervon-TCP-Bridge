@@ -14,7 +14,7 @@ KOTLIN = Path("android/app/src/main/kotlin/com/tervonvpndpi/app")
 DART = Path("lib/vpn")
 ORIGINAL = {
     KOTLIN / "VlessConfigParser.kt": ("4bb5f406ae0563a2ff84b635e4b86508f9d49085", "1977a9cdb61d5fdf7acc94c11183c94550ea985d"),
-    DART / "sub_parser.dart": ("8d1d320868fab622effb193189a36a022d491ea0", "8c8ea0052b09a38207fdaee4f37e2c42f00a8e6f"),
+    DART / "sub_parser.dart": ("8d1d320868fab622effb193189a36a022d491ea0", "1c92557a5bd7db7373c80c107ed6b1ef4295c055"),
 }
 NEW_SOURCES = {
     KOTLIN / "TrojanOutboundParser.kt": "integrations/android-ingress/stage4/TrojanOutboundParser.kt",
