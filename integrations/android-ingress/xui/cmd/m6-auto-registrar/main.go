@@ -121,6 +121,14 @@ func configuredTransportServices(root string) (map[string]string, []string, erro
         transports["xhttp"] = "vpn-xhttp"
         services = append(services, "vpn-xhttp")
     }
+    if len(cfg.Routes["vpn-trojan"]) > 0 {
+        transports["trojan_tcp"] = "vpn-trojan"
+        services = append(services, "vpn-trojan")
+    }
+    if len(cfg.Routes["vpn-trojan-xhttp"]) > 0 {
+        transports["trojan_xhttp"] = "vpn-trojan-xhttp"
+        services = append(services, "vpn-trojan-xhttp")
+    }
     return transports, services, nil
 }
 
