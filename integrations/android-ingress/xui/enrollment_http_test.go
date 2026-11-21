@@ -34,7 +34,7 @@ func TestBridgeEnrollmentHTTPDiscoveryAndCSR(t *testing.T) {
     if !data.Available || data.RemoteURL!=h.RemoteURL || data.ServerName!=h.ServerName ||
         data.Service!="vpn" || data.ClientCA!=string(caPEM) ||
         data.ServerCA!=string(caPEM) {t.Fatal("incorrect discovery")}
-    if len(data.TransportServices) != 0 { t.Fatal("legacy discovery unexpectedly advertised XHTTP") }
+    if len(data.TCPRoutes) != 0 { t.Fatal("unconfigured TCP routes were advertised") }
     if fingerprint!="" {t.Fatal("discovery activated client")}
     request:=httptest.NewRequest(http.MethodPost,"https://sub.example/.well-known/tervon-bridge",bytes.NewReader(csr))
     request.Header.Set("Content-Type","application/pkcs10")
@@ -95,12 +95,14 @@ func TestBridgeEnrollmentHTTPRefusesUnsafeRequestsAndActivationFailures(t *testi
     if _,err:=badURL.Handler();err==nil{t.Fatal("insecure endpoint accepted")}
 }
 
-func TestDiscoveryTransportCapabilities(t *testing.T) {
+func TestDiscoveryAuthenticatedTCPRoutes(t *testing.T) {
     now:=time.Now().UTC().Truncate(time.Second)
     _,caPEM,caKey:=testCertificateInputs(t,now)
     h:=&BridgeEnrollmentHTTP{
         RemoteURL:"https://bridge.example/v2/stream", ServerName:"bridge.example",
-        Service:"vpn", TransportServices:map[string]string{"tcp":"vpn","xhttp":"vpn-xhttp","trojan_tcp":"vpn-trojan","trojan_xhttp":"vpn-trojan-xhttp"},
+        Service:"first-service", TCPRoutes:map[string]string{
+            "41771":"first-service", "55636":"xhttp-backend", "48213":"any-other-service",
+        },
         ClientCAPEM:caPEM, ServerCAPEM:caPEM, ClientCAKey:caKey,
         Activate:func(string)error{return nil},
     }
@@ -108,18 +110,21 @@ func TestDiscoveryTransportCapabilities(t *testing.T) {
     if err!=nil {t.Fatal(err)}
     rr:=httptest.NewRecorder()
     handler.ServeHTTP(rr,httptest.NewRequest(http.MethodGet,"https://sub.example/.well-known/tervon-bridge",nil))
-    if rr.Code!=http.StatusOK { t.Fatalf("bad status %d",rr.Code) }
+    if rr.Code!=http.StatusOK {t.Fatalf("bad status %d",rr.Code)}
     var resp bridgeDiscoveryResponse
     if err:=json.Unmarshal(rr.Body.Bytes(),&resp);err!=nil {t.Fatal(err)}
-    if resp.TransportServices["tcp"]!="vpn" || resp.TransportServices["xhttp"]!="vpn-xhttp" ||
-        resp.TransportServices["trojan_tcp"]!="vpn-trojan" ||
-        resp.TransportServices["trojan_xhttp"]!="vpn-trojan-xhttp" {
-        t.Fatalf("incomplete capability map: %v",resp.TransportServices)
+    if resp.TCPRoutes["41771"]!="first-service" ||
+        resp.TCPRoutes["55636"]!="xhttp-backend" ||
+        resp.TCPRoutes["48213"]!="any-other-service" {
+        t.Fatalf("incorrect TCP route advertisement: %v",resp.TCPRoutes)
     }
-    wrong:=*h
-    wrong.TransportServices=map[string]string{"tcp":"vpn-xhttp"}
-    if _,err:=wrong.Handler();err==nil {t.Fatal("accepted mismatched TCP service")}
-    wrong=*h
-    wrong.TransportServices=map[string]string{"tcp":"vpn","udp":"vpn-xhttp"}
-    if _,err:=wrong.Handler();err==nil {t.Fatal("accepted unexpected UDP transport")}
+    for _,invalid := range []map[string]string{
+        {"0":"first-service"}, {"65536":"first-service"},
+        {"0443":"first-service"}, {"noport":"first-service"},
+        {"443":"service with spaces"},
+    } {
+        wrong:=*h
+        wrong.TCPRoutes=invalid
+        if _,err:=wrong.Handler();err==nil {t.Fatalf("accepted invalid TCP route: %v",invalid)}
+    }
 }
