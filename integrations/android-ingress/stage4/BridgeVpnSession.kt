@@ -70,7 +70,7 @@ internal object BridgeVpnSession {
             if (params.serverId != trusted.serverId) return fallback("DISCOVERY_ID_MISMATCH", direct)
             val serviceKey = if (protocol == "trojan") "trojan_$transport" else transport
             val authorizedService = params.transportServices[serviceKey]
-                ?: return fallback("XHTTP_ROUTE_UNAVAILABLE", direct)
+                ?: return fallback("BRIDGE_SERVICE_UNAVAILABLE", direct)
 
             val identity = BridgeDeviceIdentity(context)
             val stored = BridgeServerCertificateStore(context).findValid(
