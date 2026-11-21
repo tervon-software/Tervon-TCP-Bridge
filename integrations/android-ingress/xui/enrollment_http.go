@@ -9,6 +9,7 @@ import (
     "net/url"
     "strings"
     "strconv"
+    "regexp"
     "time"
 )
 
@@ -65,8 +66,7 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
     for port, service := range h.TCPRoutes {
         n, err := strconv.Atoi(port)
         if err != nil || n < 1 || n > 65535 || strconv.Itoa(n) != port ||
-            len(service) == 0 || len(service) > 64 ||
-            strings.ContainsAny(service, " /@\\\\") {
+            !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`).MatchString(service) {
             return nil, errors.New("invalid advertised TCP route")
         }
     }
