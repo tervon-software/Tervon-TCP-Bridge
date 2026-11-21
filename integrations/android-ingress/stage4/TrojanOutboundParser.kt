@@ -30,7 +30,7 @@ internal object TrojanOutboundParser {
     fun parseUrl(url: String): Map<String, String>? {
         return try {
             if (!url.startsWith("trojan://", ignoreCase = true)) return null
-            val uri = URI(url.trim())
+            val uri = URI(url.trim().substringBefore("#"))
             if (!uri.scheme.equals("trojan", true) || uri.rawUserInfo.isNullOrEmpty() ||
                 uri.host.isNullOrBlank() || uri.port !in 1..65535) return null
             val rawPassword = uri.rawUserInfo
