@@ -106,6 +106,36 @@ internal object BridgeXrayConfigRouteTest {
             .getJSONObject(0).getString("password") == "secret-test-only")
         check(tx.getJSONObject("streamSettings").getJSONObject("xhttpSettings")
             .getString("host") == "vpn.example")
+        // VMess uses vnext as VLESS does, but must not be allowlisted by name.
+        val vmess = JSONObject(profile("ws", JSONObject()))
+        vmess.getJSONArray("outbounds").getJSONObject(0).put("protocol", "vmess")
+        val vmessOut = JSONObject(BridgeXrayConfigRoute.apply(vmess.toString(), route))
+            .getJSONArray("outbounds").getJSONObject(0)
+        check(BridgeXrayConfigRoute.destination(vmessOut).getString("address") == "127.0.0.1")
+        check(vmessOut.getJSONObject("streamSettings").getJSONObject("wsSettings")
+            .getJSONObject("headers").getString("Host") == "vpn.example")
+
+        // Arbitrary Xray TCP outbound with a servers[] shape and opaque
+        // credentials is handled without recognising the VPN protocol.
+        val arbitrary = JSONObject(trojan.toString())
+        arbitrary.getJSONArray("outbounds").getJSONObject(0)
+            .put("protocol", "future-tcp-protocol")
+        val arbitraryOut = JSONObject(BridgeXrayConfigRoute.apply(arbitrary.toString(), route))
+            .getJSONArray("outbounds").getJSONObject(0)
+        check(BridgeXrayConfigRoute.destination(arbitraryOut).getInt("port") == 19001)
+        check(BridgeXrayConfigRoute.destination(arbitraryOut).getString("password") == "secret-test-only")
+
+        // UDP-based network and ambiguous destination shapes remain unsafe.
+        val quic = JSONObject(vmess.toString())
+        quic.getJSONArray("outbounds").getJSONObject(0)
+            .getJSONObject("streamSettings").put("network", "quic")
+        check(runCatching { BridgeXrayConfigRoute.apply(quic.toString(), route) }.isFailure)
+        val ambiguous = JSONObject(vmess.toString())
+        val ambiguousProxy = ambiguous.getJSONArray("outbounds").getJSONObject(0)
+        ambiguousProxy.getJSONObject("settings").put("servers", JSONArray().put(
+            JSONObject().put("address", "vpn.example").put("port", 30443)))
+        check(runCatching { BridgeXrayConfigRoute.apply(ambiguous.toString(), route) }.isFailure)
+        println("M6_ANY_TCP_OUTBOUND_REWRITE=PASS")
         println("M6_XHTTP_TCP_ROUTE_IDENTITY=PASS")
         println("M6_TROJAN_TCP_ROUTE_IDENTITY=PASS")
     }
