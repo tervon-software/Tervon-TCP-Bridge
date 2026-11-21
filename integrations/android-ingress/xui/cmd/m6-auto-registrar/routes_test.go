@@ -6,48 +6,45 @@ import (
     "testing"
 )
 
-func TestConfiguredTransportServicesOnlyAdvertisesExistingRoutes(t *testing.T) {
-    root := t.TempDir()
-    if err := os.MkdirAll(filepath.Join(root, "config"), 0700); err != nil { t.Fatal(err) }
-    path := filepath.Join(root, "config", "server.json")
-    write := func(value string) {
-        t.Helper()
-        if err := os.WriteFile(path, []byte(value), 0600); err != nil { t.Fatal(err) }
-    }
-    write(`{"mode":"server","listen":"0.0.0.0:8443","routes":{"vpn":[{"name":"tcp","address":"host.docker.internal:30000"}]}}`)
-    routes, services, err := configuredTransportServices(root)
-    if err != nil {t.Fatal(err)}
-    if len(routes)!=1 || routes["tcp"]!="vpn" || len(services)!=1 || services[0]!="vpn" {
-        t.Fatalf("legacy route incorrectly changed: %v %v", routes, services)
-    }
-    write(`{"mode":"server","listen":"0.0.0.0:8443","routes":{"vpn":[{"name":"tcp","address":"host.docker.internal:30000"}],"vpn-xhttp":[{"name":"xhttp","address":"host.docker.internal:30443"}]}}`)
-    routes, services, err = configuredTransportServices(root)
-    if err!=nil {t.Fatal(err)}
-    if len(routes)!=2 || routes["xhttp"]!="vpn-xhttp" || len(services)!=2 || services[1]!="vpn-xhttp" {
-        t.Fatalf("XHTTP capability missing: %v %v",routes,services)
-    }
-    write(`{"mode":"server","routes":{"vpn-xhttp":[{"address":"host.docker.internal:30443"}]}}`)
-    if _,_,err := configuredTransportServices(root); err==nil {t.Fatal("accepted absent TCP route")}
-    write(`{"mode":"server","routes":{"vpn":[{"address":"host.docker.internal:30000"}],"vpn-xhttp":[]}}`)
-    routes, services, err = configuredTransportServices(root)
-    if err != nil {t.Fatal(err)}
-    if len(routes)!=1 || len(services)!=1 {t.Fatal("empty XHTTP route advertised")}
-}
-
-func TestConfiguredTransportServicesIncludesTrojanWithoutPortsInCode(t *testing.T) {
+func testTCPRouteConfig(t *testing.T, config string) string {
+    t.Helper()
     root := t.TempDir()
     if err := os.MkdirAll(filepath.Join(root, "config"), 0700); err != nil {t.Fatal(err)}
-    contents := `{"mode":"server","listen":"0.0.0.0:8443","routes":{
-      "vpn":[{"address":"host.docker.internal:49312"}],
-      "vpn-trojan":[{"address":"host.docker.internal:48111"}],
-      "vpn-trojan-xhttp":[{"address":"host.docker.internal:47391"}]}}`
-    if err := os.WriteFile(filepath.Join(root, "config/server.json"), []byte(contents), 0600); err != nil {t.Fatal(err)}
-    routes, services, err := configuredTransportServices(root)
+    if err := os.WriteFile(filepath.Join(root, "config", "server.json"), []byte(config), 0600); err != nil {t.Fatal(err)}
+    return root
+}
+
+func TestDynamicTCPRoutesDoNotInspectVPNProtocols(t *testing.T) {
+    root := testTCPRouteConfig(t, `{"mode":"server","listen":"0.0.0.0:8443","routes":{
+        "ordinary":[{"Name":"tcp","Address":"host.docker.internal:41771"}],
+        "random-name":[{"Name":"xhttp","Address":"host.docker.internal:55636"}],
+        "yet-another-service":[{"Name":"arbitrary","Address":"host.docker.internal:49123"}]
+    }}`)
+    routes, services, err := configuredTCPRoutes(root)
     if err != nil {t.Fatal(err)}
-    if routes["trojan_tcp"] != "vpn-trojan" || routes["trojan_xhttp"] != "vpn-trojan-xhttp" {
-        t.Fatalf("missing Trojan discovery: %v", routes)
+    if len(routes) != 3 || len(services) != 3 {
+        t.Fatalf("wrong dynamic route count: %v / %v", routes, services)
     }
-    if len(services) != 3 || services[1] != "vpn-trojan" || services[2] != "vpn-trojan-xhttp" {
-        t.Fatalf("Trojan ACL mismatch: %v", services)
+    if routes["41771"] != "ordinary" || routes["55636"] != "random-name" ||
+        routes["49123"] != "yet-another-service" {
+        t.Fatalf("ports not derived from config: %v", routes)
+    }
+}
+
+func TestDynamicTCPRoutesFailClosed(t *testing.T) {
+    cases := []string{
+        `{"mode":"client","routes":{"vpn":[{"Address":"h:443"}]}}`,
+        `{"mode":"server","routes":{}}`,
+        `{"mode":"server","routes":{"vpn":[]}}`,
+        `{"mode":"server","routes":{"vpn":[{"Address":"not-hostport"}]}}`,
+        `{"mode":"server","routes":{"vpn":[{"Address":"host:0"}]}}`,
+        `{"mode":"server","routes":{"vpn":[{"Address":"host:443"}],"another":[{"Address":"host:443"}]}}`,
+        `{"mode":"server","routes":{"vpn":[{"Address":"host:443"}],"bad/name":[{"Address":"host:444"}]}}`,
+    }
+    for _,config := range cases {
+        root := testTCPRouteConfig(t, config)
+        if _,_,err := configuredTCPRoutes(root); err == nil {
+            t.Fatalf("unexpected acceptance of malformed or ambiguous backend: %s",config)
+        }
     }
 }
