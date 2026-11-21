@@ -4,11 +4,22 @@ import org.json.JSONObject
 
 /**
  * Applies an ALREADY AUTHORIZED, READY, locally listening Bridge route to one
- * generated Xray VLESS or Trojan TCP-based outbound. It never starts Bridge.
- * Keeps VLESS UUID/Trojan password, flow, transport mode and routing. Preserves HTTP Host
- * and TLS SNI explicitly when Xray would derive them from the old destination.
+ * generated Xray TCP-capable outbound. It never starts Bridge.
+ * Does not parse, modify, or classify VPN credentials or payload bytes.
+ * Preserves effective HTTP Host and TLS SNI when redirecting the dial target.
  */
 internal object BridgeXrayConfigRoute {
+    // Choose by the existing Xray destination shape, not by VPN protocol name.
+    // Multiple destinations require an explicit trusted route, never guessing.
+    fun destination(proxy: JSONObject): JSONObject {
+        val settings = proxy.getJSONObject("settings")
+        val keys = listOf("vnext", "servers").filter { settings.has(it) }
+        require(keys.size == 1) { "Exactly one TCP destination list required" }
+        val entries = settings.getJSONArray(keys.single())
+        require(entries.length() == 1) { "Exactly one TCP destination required" }
+        return entries.getJSONObject(0)
+    }
+
     fun apply(configJson: String, route: BridgeVlessRoutePlan.Route): String {
         val root = JSONObject(configJson)
         val outbounds = root.getJSONArray("outbounds")
@@ -16,18 +27,16 @@ internal object BridgeXrayConfigRoute {
             .filter { it.optString("tag") == "proxy" }
         require(matching.size == 1) { "Exactly one proxy outbound required" }
         val proxy = matching.single()
-        val protocol = proxy.optString("protocol").lowercase(java.util.Locale.ROOT)
-        require(protocol == "vless" || protocol == "trojan") { "Only VLESS/Trojan supported" }
         val stream = proxy.optJSONObject("streamSettings") ?: JSONObject().also {
             proxy.put("streamSettings", it)
         }
         val network = stream.optString("network")
-        require(BridgeVlessRoutePlan.isSupportedTransport(network)) { "Only TCP-based VLESS supported" }
-        val serverArray = proxy.getJSONObject("settings").getJSONArray(
-            if (protocol == "trojan") "servers" else "vnext"
-        )
-        require(serverArray.length() == 1) { "Exactly one destination required" }
-        val destination = serverArray.getJSONObject(0)
+        require(BridgeVlessRoutePlan.isTcpTransport(network)) { "Only TCP transports supported" }
+        val tlsAlpn = stream.optJSONObject("tlsSettings")?.optJSONArray("alpn")
+        require(tlsAlpn == null || (0 until tlsAlpn.length()).none {
+            tlsAlpn.optString(it).equals("h3", ignoreCase = true)
+        }) { "HTTP/3 is not a TCP transport" }
+        val destination = destination(proxy)
         require(destination.getString("address").trimEnd('.').equals(
             route.remote.host.trimEnd('.'), ignoreCase = true
         ) && destination.getInt("port") == route.remote.port) {
@@ -89,6 +98,31 @@ internal object BridgeXrayConfigRoute {
                 originalHost.matches(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,252}")) &&
                 !originalHost.matches(Regex("[0-9.]+"))) {
                 tls.put("serverName", originalHost)
+            }
+        }
+        // Preserve implicit HTTP authority when the original remote hostname
+        // would otherwise be replaced by 127.0.0.1 in generated Xray.
+        if (network.equals("ws", true)) {
+            val ws = stream.optJSONObject("wsSettings") ?: JSONObject().also {
+                stream.put("wsSettings", it)
+            }
+            val headers = ws.optJSONObject("headers") ?: JSONObject().also {
+                ws.put("headers", it)
+            }
+            if (headers.optString("Host").isEmpty()) headers.put("Host", originalHost)
+        }
+        if (network.equals("httpupgrade", true)) {
+            val upgrade = stream.optJSONObject("httpupgradeSettings") ?: JSONObject().also {
+                stream.put("httpupgradeSettings", it)
+            }
+            if (upgrade.optString("host").isEmpty()) upgrade.put("host", originalHost)
+        }
+        if (network.equals("http", true) || network.equals("h2", true)) {
+            val http = stream.optJSONObject("httpSettings") ?: JSONObject().also {
+                stream.put("httpSettings", it)
+            }
+            if (http.optString("host").isEmpty() && !http.has("host")) {
+                http.put("host", org.json.JSONArray().put(originalHost))
             }
         }
         destination.put("address", route.local.host)
