@@ -6,6 +6,7 @@ import (
  "net/http"
  "net/http/httptest"
  "strings"
+ "sync/atomic"
  "testing"
 )
 const nodeID="123e4567-e89b-12d3-a456-426614174000"
@@ -54,4 +55,35 @@ func TestRemnawaveDoesNotExposeAPISecret(t *testing.T){
  _,err:=c.SelectedNodeInbounds(context.Background(),nodeID)
  if err==nil||strings.Contains(err.Error(),"dummy-token"){t.Fatalf("unsafe error: %v",err)}
  if _,err:=c.SelectedNodeInbounds(context.Background(),"../escape");err==nil{t.Fatal("accepted invalid node ID")}
+}
+
+func TestRemnawaveRejectsNodeSelectionDriftBetweenGETs(t *testing.T){
+ for _,tc:=range []struct{name string;after string}{
+  {"disabled",fmt.Sprintf(`{"response":{"uuid":%q,"isDisabled":true,"configProfile":{"activeConfigProfileUuid":%q,"activeInbounds":[{"uuid":%q}]}}}`,nodeID,profileID,activeID)},
+  {"removed-inbound",fmt.Sprintf(`{"response":{"uuid":%q,"isDisabled":false,"configProfile":{"activeConfigProfileUuid":%q,"activeInbounds":[]}}}`,nodeID,profileID)},
+  {"changed-profile",fmt.Sprintf(`{"response":{"uuid":%q,"isDisabled":false,"configProfile":{"activeConfigProfileUuid":%q,"activeInbounds":[{"uuid":%q}]}}}`,nodeID,inactiveID,activeID)},
+  {"changed-port",fmt.Sprintf(`{"response":{"uuid":%q,"isDisabled":false,"configProfile":{"activeConfigProfileUuid":%q,"activeInbounds":[{"uuid":%q,"port":8888}]}}}`,nodeID,profileID,activeID)},
+ }{
+  t.Run(tc.name,func(t *testing.T){
+   before:=fmt.Sprintf(`{"response":{"uuid":%q,"isDisabled":false,"configProfile":{"activeConfigProfileUuid":%q,"activeInbounds":[{"uuid":%q}]}}}`,nodeID,profileID,activeID)
+   profile:=fmt.Sprintf(`{"response":[{"uuid":%q,"profileUuid":%q,"port":7771,"type":"vless","network":"tcp"}]}`,activeID,profileID)
+   var calls atomic.Int32
+   s:=httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
+    switch r.URL.Path{
+    case "/api/nodes/"+nodeID:
+     if calls.Add(1)==1{fmt.Fprint(w,before)}else{fmt.Fprint(w,tc.after)}
+    case "/api/config-profiles/"+profileID+"/inbounds":fmt.Fprint(w,profile)
+    default:w.WriteHeader(http.StatusNotFound)
+    }
+   }))
+   defer s.Close()
+   c,err:=NewRemnawaveClient(s.URL,"dummy-token")
+   if err!=nil{t.Fatal(err)}
+   c.httpClient=s.Client()
+   if _,err:=c.SelectedNodeInbounds(context.Background(),nodeID);err==nil{
+    t.Fatal("accepted node selection modified between API GETs")
+   }
+   if got:=calls.Load();got!=2{t.Fatalf("expected two node reads, got %d",got)}
+  })
+ }
 }
