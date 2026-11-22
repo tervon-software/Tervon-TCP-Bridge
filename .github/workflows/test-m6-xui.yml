@@ -1,0 +1,31 @@
+name: M6 3X-UI adapter tests
+
+on:
+  push:
+    branches: [work/m6-android-ingress]
+    paths:
+      - 'integrations/android-ingress/xui/**'
+      - '.github/workflows/test-m6-xui.yml'
+  pull_request:
+    paths:
+      - 'integrations/android-ingress/xui/**'
+      - '.github/workflows/test-m6-xui.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  xui-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/android-ingress/xui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: integrations/android-ingress/xui/go.mod
+          cache: false
+      - name: Unit tests with race detector
+        run: go test -race -count=1 ./...

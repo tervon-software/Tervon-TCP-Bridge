@@ -1,0 +1,27 @@
+# Deliberately opt-in. No default start and no public listening port.
+# Run from repository root:
+# docker compose -f integrations/android-ingress/compose.yaml --profile android-ingress-manual config
+services:
+  android-bridge-decapsulator:
+    profiles: ["android-ingress-manual"]
+    # Production runtime uses the prebuilt verified v1.0.1 image only.
+    # NEVER rebuild implicitly from the obsolete main/M6 prototype.
+    pull_policy: never
+    image: tervon-bridge-android-ingress:local
+    restart: unless-stopped
+    read_only: true
+    user: "65532:65532"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    ports:
+      - "${ANDROID_BRIDGE_BIND_IP:-127.0.0.1}:${ANDROID_BRIDGE_BIND_PORT:-18443}:8443/tcp"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - "${ANDROID_BRIDGE_CONFIG_DIR:-/etc/tervon/bridge-android/config}:/config:ro"
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=8m
+    stop_grace_period: 15s
