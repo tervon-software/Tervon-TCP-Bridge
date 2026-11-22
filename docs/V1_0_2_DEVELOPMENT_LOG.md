@@ -331,3 +331,23 @@ go vet ./...
 **Доказательная граница:** `XRAY_CONFIGURED_CANDIDATES=SOURCE_COMMITTED`; `GO_TEST_NEW_HEAD=NOT_RUN`; `XRAY_PROCESS_APPLIED_CONFIG=NOT_VERIFIED`; `CORE_ROUTE_APPLY_ACK=NOT_IMPLEMENTED`; `DISCOVERY_GEN_MATCH=NOT_IMPLEMENTED`; `STAGE3=IN_PROGRESS`, `RELEASE=NO`. `EffectiveInbound` в типах описывает предполагаемое эффективное состояние, но функция-источник здесь является только файлом. Никакие кандидаты не могут рекламироваться Android без отдельного подтверждения работающего Xray и атомарного применённого policy ядра.
 
 **Следующая проверка:** выполнить прицельные `go test -count=1 -run '^TestParseXrayConfiguredInbounds' -v .`, полный `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...` на точном новом HEAD. Только после подтверждённого PASS продолжить runtime-proof и согласованную публикацию.
+
+## 2026-11-22 — Этап 3: Homeserver PASS Go-парсера Xray configured inbound
+
+**Источник доказательств:** полный вывод консоли Homeserver оператора; не CI, не результат чтения реального запущенного Xray.
+
+**Проверенный GitHub commit/HEAD:** `10aa483916b7f88591986009b30630dee6b2c127`; ветка `work/m6-android-ingress`. Оператор выполнил `git pull --ff-only`, подтверждён `Fast-forward` `da7f8e2..10aa483`. Каталог тестов: `integrations/android-ingress/xui`.
+
+**Изменения проверенного кандидата:** `xray_configured.go` (config-only Xray inbound parser с доверенным resolver), `xray_configured_test.go` (валидный TCP и XHTTP, отклонение дубликатов, отсутствующего/некорректного порта, дополнительных JSON-документов и неверного backend).
+
+| Контроль | Фактический вывод / код | Статус |
+| --- | --- | --- |
+| `go test -count=1 -run '^TestParseXrayConfiguredInbounds' -v .` | Оба теста PASS, включая 5 отрицательных подпроверок; `XRAY_RC=0` | **PASS** |
+| `go test -count=1 ./...` | 6 Go packages `ok`; `TEST_RC=0` | **PASS** |
+| `go test -race -count=1 ./...` | 6 Go packages `ok`; `RACE_RC=0` | **PASS** |
+| `go vet ./...` | Нет диагностических сообщений; `VET_RC=0` | **PASS** |
+| Безопасность SSH | `SSH_CONSOLE=OPEN` | **PASS** |
+
+**Точный смысл PASS:** парсер Xray JSON и тестовая связка с `ReconcileInbounds` работают в изолированном Go-модуле на указанном commit. **НЕТ** подтверждения, что текущий работающий Xray применил этот JSON или принимает TCP на любом определённом порту. **НЕТ** подключения к атомарной политике Decapsulator, подтверждения поколения от сервера, динамического discovery, live Remnawave API или успешного интернет-трафика Android. `XRAY_CONFIGURED_PARSER=PASS`, `XRAY_RUNTIME_ACTIVE=NOT_VERIFIED`, `STEP3_OVERALL=IN_PROGRESS`, `V1.0.2_RELEASE=NO`. Команда не содержала вмешательства в работающие службы; их актуальный runtime-статус этим испытанием отдельно не проверялся.
+
+**Следующий шаг:** ревизия имеющегося доверенного механизма проверки реально запущенного Xray и связки Core ACK → Discovery. Не объявлять файл JSON равнозначным процессному runtime, не повторять уже прошедшие Go-проверки без новой причины и не менять действующие службы.
