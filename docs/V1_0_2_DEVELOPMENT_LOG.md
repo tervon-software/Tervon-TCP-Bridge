@@ -283,3 +283,20 @@ go vet ./...
 **Не закрыто:** `REMNAWAVE_REAL_API=NOT_TESTED`, `NODE_TWO_GET_CONSISTENCY=NOT_IMPLEMENTED`, `EFFECTIVE_XRAY_CHECK=NOT_CONNECTED`, `CORE_POLICY_ACK=NOT_CONNECTED`, `DISCOVERY_GENERATION=NOT_CONNECTED`, `ANDROID_E2E=NOT_PASS`; `STAGE3=IN_PROGRESS`, `v1.0.2=NOT_RELEASED`. Операторская проверка не содержала деплоя/перезапуска; автономного аудита текущего состояния служб не проводилось.
 
 **Следующий шаг:** локально, только в исходниках, предотвратить гонку изменения Remnawave Node между чтением её профиля и чтением inbound (повторная проверка идентичности выбранной ноды, активного профиля и набора выбранных UUID). Добавить негативные HTTP mock-тесты именно этого случая, затем запросить полный Go test/race/vet на новом точном HEAD. Обновлять журнал на каждом изменении, не переносить текущий PASS на новый commit.
+
+## 2026-11-22 — Этап 3: защита от изменения Remnawave Node между HTTP GET
+
+**Отправная точка:** после документированного `REMNAWAVE_RC=0`, `TEST_RC=0`, `RACE_RC=0`, `VET_RC=0` на HEAD `5b65aa1affb68d6535091ef6c57a5fd129af657a`, результат записан в документацию commit `d200450c343d61ee30bbd8428e4ba19eb0603c28`. Этот PASS не переносится на новый код.
+
+**Выявленная ситуация:** Remnawave API-адаптер последовательно делает `GET /api/nodes/{uuid}`, затем `GET /api/config-profiles/{uuid}/inbounds`. Между запросами оператор панели может переназначить ноде Config Profile, выключить ноду или изменить её выбранные inbound. Без повторной проверки адаптер мог вернуть логически устаревший набор.
+
+**Исправление источников:** `integrations/android-ingress/xui/remnawave.go`: в конце `SelectedNodeInbounds` повторно считывается `GET /api/nodes/{uuid}`; функция `remnaNodeSelectionEqual` проверяет UUID ноды, enabled-state, UUID назначенного профиля и полный список активных inbound (UUID, profileUUID, порт, type, network) без зависимости от их порядка. Несовпадение/повторение/пустая структура вызывает отказ без публикации маршрутов. Ошибка не раскрывает API endpoint/token.
+**Тесты:** `integrations/android-ingress/xui/remnawave_test.go`: mock TLS-панель возвращает различные данные на первом и втором чтении Node; сценарии disabled, removed inbound, changed profile, changed port должны отклоняться; тест требует ровно 2 чтения Node. Существующие тесты являются регрессией для стабильного ответа.
+
+**Коммиты:** `a083f58729eb192fd6076a0f07aa81d073735e0b` (код), `7f58e8975f6456eeb251be1d71cd25d39f4fc897` (тесты).
+
+**Границы:** повторная проверка уменьшает окно TOCTOU, но не является транзакционным snapshot API и не доказывает неизменность панели после последнего GET. Надёжное runtime применение требует отдельной проверки effective Xray, atomic policy ACK и согласованного discovery. **Этот пакет не развёрнут** и на Homeserver после его изменения ещё не тестировался.
+
+**Статус:** `NODE_RECHECK_SOURCE=COMMITTED`, `NODE_RECHECK_TESTS=COMMITTED`, `NEW_HEAD_TEST=NOT_RUN`, `STAGE3=IN_PROGRESS`, `RELEASE=NO`.
+
+**Следующий проверочный шаг:** на Homeserver при чистой `work/m6-android-ingress` выполнить `git pull --ff-only`; затем `go test -count=1 -run '^TestRemnawave' -v .`, `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...` с независимыми кодами завершения. Все действия в subshell; работающие службы не затрагивать.
