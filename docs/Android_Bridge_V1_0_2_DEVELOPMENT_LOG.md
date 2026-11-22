@@ -148,3 +148,9 @@
 **КРИТИЧЕСКАЯ несовместимость текущих источников GitHub:** `xui/cmd/m6-auto-registrar/main.go` всё ещё вызывает `configuredTCPRoutes(root)`, считывает `config/server.json` и передаёт `TCPRoutes`; `xui/enrollment_http.go` имеет `TCPRoutes`/legacy response, а `xui/confirmed_routes.go` содержит вспомогательную map. Пользователь отменил `tcp_routes` для целевой Android-архитектуры; не использовать, не восстанавливать и **не делать вывод**, что работающий сервер использует старый код. Действующий deployment registrar identity отдельно НЕ ПОДТВЕРЖДЁН этим GitHub read-only исследованием. Вопрос: каким **реально действующим** механизмом клиент узнаёт корректный opaque service для выбранного TCP inbound **без отдельной `tcp_routes`**? Нельзя придумывать API, включать static port mapping или менять готовый сервер без утверждения; проверить существующий опубликованный интерфейс при новой Android реализации.
 
 **Результат:** `SOURCE_AND_RELEASE_RECONSTRUCTION=PASS_READ_ONLY`, `DOCKER_DEPLOYMENT=PASS_OPERATOR_EVIDENCE`, `SERVER_READY=OPERATOR_CONFIRMED`, `ANDROID_NEW_CODE=NOT_STARTED`, `ANDROID_DEVICE_E2E=NOT_RUN_NEW_BASELINE`. `SERVICE_BINDING_CONTRACT=NEEDS_CURRENT_INTERFACE_EVIDENCE`. Новых исходников/бинарников/служб не меняли, серверных тестов заново не запускали.
+
+### Запись 006 — Проверенные временные метки записи исследования
+
+- `0ff4a09647029dbfdd9f7a14650d77f2621a5d75` — `2026-11-22 11:15:48 UTC` = **18:15:48 Новосибирск**, дополнение журнала разработки (Запись 005).
+- `d3981c3e4ff7fee335fbdcdd727c237b72a24e02` — `2026-11-22 11:15:51 UTC` = **18:15:51 Новосибирск**, дополнение журнала испытаний (JOB-003).
+- Источник времени: GitHub `fetch_commit.created_at`. Изменены только docs; новых тестов/Android-сборок не было.
