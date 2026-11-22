@@ -714,3 +714,11 @@ go vet ./...
 **Проверка ожидается:** единый пакет `python3 -m unittest -v test_check_xray_grpc_runtime.py` (ожидается 5 тестов), `python3 -m py_compile check_xray_grpc_runtime.py test_check_xray_grpc_runtime.py`, затем **один** `python3 check_xray_grpc_runtime.py`. Ошибка или `BLOCKED` не являются PASS. Нельзя выводить `stderr`, `raw ListInbounds`, tags/credentials, путь config/API адрес. Нельзя запускать `AddInbound`, `RemoveInbound`, `AlterInbound`; работающие службы не менять. Если снова BLOCKED, классифицированная категория позволяет остановиться и исправить один конкретный этап без бессмысленного повторения всех шагов.
 
 **Статус:** `DIAGNOSTIC_FAILURE_CLASSIFICATION=SOURCE_COMMITTED`, `HOMESERVER_TEST=NOT_RUN`, `XRAY_RUNTIME_DETAILS=BLOCKED`, `STAGE3=IN_PROGRESS`, `RELEASE=NO`.
+
+## 2026-11-22 — M6 Stage 3: повторный Homeserver полный Xray gRPC аудит — классифицированный BLOCKED
+
+**Испытанный SOURCE_HEAD:** `9e30299930772653ed1f47ad31a787a944c4669f` в `work/m6-android-ingress`; `git pull --ff-only` fast-forward `7e3dc50..9e30299`. Оператор выполнил единым пакетом `python3 -m py_compile check_xray_grpc_runtime.py test_check_xray_grpc_runtime.py` (`SYNTAX_RC=0`), `python3 -m unittest -v test_check_xray_grpc_runtime.py` (все **5/5 PASS**, `TEST_RC=0`), `python3 check_xray_grpc_runtime.py` (`XRAY_RUNTIME_AUDIT=BLOCKED`, `REASON=RUNTIME_GRPC_PROTOBUF_PROJECTION_UNAVAILABLE`, `RUNTIME_RC=2`). `RUNNING_SERVICES=UNCHANGED`, `SSH_CONSOLE=OPEN`.
+
+**Новая установленная граница сбоя:** источник config прочитан, gRPC full `api lsi` успешно вызван и ответ JSON разобран; сбой **в функции `extract()` для бинарных `TypedMessage`/привязанных полей**. На основе этого вывода нельзя назвать конкретное поле, входящий обработчик или тип protobuf mismatch. Синтетические unit-тесты не являются подтверждением реальной формы proto JSON. `LIVE_GRPC=PASS`, `RUNTIME_PROTOBUF_PROJECTION=BLOCKED`, `XRAY_APPLIED_ROUTES=NOT_CONFIRMED`.
+
+**Следующее исправление строго в диагностическом компоненте:** пересмотреть реальный upstream способ сериализации `TypedMessage`, ввести безопасный фиксированный код **подэтапа поля** (без `str(exception)`, raw JSON, tags, credentials) для различения `receiverSettings`, `PortList`, `StreamConfig`, `proxySettings`; один объединённый тестовый прогон. Не трогать production.
