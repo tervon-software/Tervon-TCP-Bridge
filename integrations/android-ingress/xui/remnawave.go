@@ -110,5 +110,41 @@ func(c *RemnawaveClient) SelectedNodeInbounds(ctx context.Context,nodeUUID strin
   if (active.Port!=nil&&*active.Port!=*in.Port)||(active.Type!=""&&!strings.EqualFold(active.Type,in.Type))||(active.Network!=""&&!strings.EqualFold(active.Network,in.Network)){return nil,errors.New("Remnawave inbound changed during read")}
   selected=append(selected,PanelInbound{Port:*in.Port,Protocol:strings.ToLower(in.Type),Network:strings.ToLower(in.Network),Enabled:true})
  }
+ // A profile can be reassigned while the separate profile GET is in flight.
+ // Recheck the node selection before returning any inbound to reconciliation.
+ var refreshed remnaNode
+ if err:=c.get(ctx,"/api/nodes/"+nodeUUID,&refreshed);err!=nil{return nil,err}
+ if !remnaNodeSelectionEqual(node,refreshed,nodeUUID){
+  return nil,errors.New("Remnawave node selection changed during read")
+ }
  return selected,nil
+}
+
+// remnaNodeSelectionEqual compares only fields controlling the permitted
+// inbound selection, not volatile node status counters. Each inbound is
+// matched by UUID, independent of response order, with no duplicates.
+func remnaNodeSelectionEqual(a,b remnaNode,id string)bool{
+ if !strings.EqualFold(a.UUID,id)||!strings.EqualFold(b.UUID,id)||
+  a.IsDisabled==nil||b.IsDisabled==nil||*a.IsDisabled||*b.IsDisabled||
+  !strings.EqualFold(a.ConfigProfile.ActiveConfigProfileUUID,b.ConfigProfile.ActiveConfigProfileUUID)||
+  a.ConfigProfile.ActiveInbounds==nil||b.ConfigProfile.ActiveInbounds==nil||
+  len(a.ConfigProfile.ActiveInbounds)!=len(b.ConfigProfile.ActiveInbounds){return false}
+ first:=make(map[string]remnaInbound,len(a.ConfigProfile.ActiveInbounds))
+ for _,in:=range a.ConfigProfile.ActiveInbounds{
+  k:=strings.ToLower(in.UUID)
+  if !remnawaveUUID.MatchString(k){return false}
+  if _,exists:=first[k];exists{return false}
+  first[k]=in
+ }
+ seen:=make(map[string]bool,len(first))
+ for _,in:=range b.ConfigProfile.ActiveInbounds{
+  k:=strings.ToLower(in.UUID)
+  before,ok:=first[k]
+  if !ok||seen[k]||!strings.EqualFold(before.ProfileUUID,in.ProfileUUID)||
+   !strings.EqualFold(before.Type,in.Type)||!strings.EqualFold(before.Network,in.Network)||
+   (before.Port==nil)!=(in.Port==nil){return false}
+  if before.Port!=nil&&*before.Port!=*in.Port{return false}
+  seen[k]=true
+ }
+ return true
 }
