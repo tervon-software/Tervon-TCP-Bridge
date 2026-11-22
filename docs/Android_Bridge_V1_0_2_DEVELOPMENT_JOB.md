@@ -55,3 +55,12 @@
 - **Проверка после коммита:** независимо заново получить HEAD/tree, удостовериться, что Stage4 файлов 0, серверные source paths сохранены и оба журнала доступны. Пока не выполнено, `POST_VERIFY=PENDING`.
 - **Новые Android compile/E2E:** `NOT_RUN`; это **удаление устаревшего source из Git**, не восстановление мобильного приложения. Службы не изменяются.
 - **Время:** точные временные метки commit будут считаны из GitHub `created_at` после публикации; не заменять их точкой отсчёта 18:00.
+
+### JOB-002 — Итог post-commit verification
+
+- **Точное время коммита:** 2026-11-22 11:08:28 UTC / **18:08:28 Новосибирск**, источник GitHub `fetch_commit.created_at`.
+- **Проверяемый commit:** `b4be0648674d86b41fe3a26706c3743d35f40505`.
+- **Метод:** отдельный GitHub `compare_commits(branch,branch)` для HEAD; Git Trees `?recursive=1` для файлов; `fetch_commit` для времени и состава изменений.
+- **Ожидаемое:** HEAD совпадает, Stage4=0, `truncated=false`, серверные компоненты и оба новых журнала сохраняются.
+- **Фактически:** `HEAD_MATCH=PASS`, `STAGE4_FILES_REMAINING=0`, `TREE_COMPLETE=true`, `PROTECTED_PATHS_PRESENT=8/8`, `BLOBS_AFTER=155`.
+- **Итог:** `JOB-002=PASS_GITHUB_CLEANUP`. Android Kotlin/Flutter build, ARM64 execution, VPN E2E = `NOT_RUN`. Операции на Homeserver и работающих службах = `NONE`.
