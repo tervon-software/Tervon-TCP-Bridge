@@ -108,3 +108,13 @@
 - DEVELOPMENT_LOG запись 008: `49eddf43aa14858fc1d10fed7c09d31a995ed7a1`, **11:42:31Z / 18:42:31 (+07)**.
 - DEVELOPMENT_JOB запись JOB-005: `6f149f1c40d4621a13e4dfe7fc1adc5e2d01da02`, **11:42:44Z / 18:42:44 (+07)**.
 - Отдельная локальная метка начала/конца unit теста не собиралась, поэтому `TEST_EXECUTION_TIME=NOT_MEASURED`; времена Git commit не выдавать за точное время самого теста.
+
+### JOB-006 — Повтор exact-route и read-only preflight актуального Android-приложения
+
+- **Исходный HEAD:** `d2c46e380eaa465db7fc369a058005c401c2cae9`; source commit `012faf18a5618071fcf5fb4c1345cad39dde1d00`; ветка `work/m6-android-ingress`.
+- **Цель:** (1) повторить Kotlin route test на exact GitHub-compatible files, (2) проверить read-only preflight прежде чем позволять ему просматривать проект `tervonvpndpi`. Инструмент собирает только относительные пути, номера строк, SHA и Git HEAD, не печатает code/config.
+- **Команды и среда:** `kotlinc BridgeVlessRoutePlan.kt BridgeVlessRoutePlanTest.kt -include-runtime -d route-test.jar && java -jar route-test.jar` (Kotlin 1.9.0, Java 21) → `ANDROID_BRIDGE_V102_ROUTE_UNIT=PASS`. `python3 -m unittest -v test_current_app_preflight.py && python3 -m py_compile current_app_preflight.py test_current_app_preflight.py` → **3 tests PASS, py_compile PASS**.
+- **Negative tests:** nonexistent Android root raises `NOT_ANDROID_PROJECT_ROOT`; symlink source entry rejected; fixture containing `password = DO_NOT_PRINT` and `secret abc123` does not emit strings; comparison of all fixture files before/after shows identical bytes. Synthetic fake ARM64 core hash correctly marked mismatch.
+- **Исходный Git SHA exact:** preflight `e8ecf08df3e7dd561ce0e4af79e83e729b3e9185`; tests `fb7d1da713fd2e609b68fa64bf9376f06d85102f`, совпали с `git hash-object` локальных файлов. SHA256 preflight `82adb424e068b6d74e40848a16d53df8df5ee59e7a03978ce2b060356438ee97`, test `4c000b8316a9730818e0ed93f0384bb5f4d4593d7f0bfaaf66b0fe3167c4f050`.
+- **Дата/время коммита:** GitHub `fetch_commit.created_at=2026-11-22T11:46:44Z` = **18:46:44 Новосибирск**. Время локального выполнения теста отдельно не измерялось; `TEST_EXECUTION_TIME=NOT_MEASURED` и не приравнивается к commit time.
+- **Результат:** `ROUTE_REPEAT=PASS`; `PREFLIGHT_SYNTHETIC=PASS`; `ACTUAL_HOMESERVER_SCAN=NOT_RUN`; `APP_INTEGRATION=NOT_RUN`; `GO_ELF_HOMESERVER_SHA=NOT_RECHECKED`; `APK_E2E=NOT_RUN`. Живые службы и приложение не изменялись. Следующее — фактическое read-only исследование `/opt/tervonvpndpi` по утверждённой области.
