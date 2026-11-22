@@ -147,3 +147,15 @@
 - Запись 012: `5924b007c5cce1f8840be48ece9155c1fa1b216a`, GitHub `created_at=2026-11-22 11:56:59 UTC` = **18:56:59 Новосибирск**.
 - JOB-008: `68b2689ec7880229fdbb3b1b1c339c12357b944e`, GitHub `created_at=2026-11-22 11:57:14 UTC` = **18:57:14 Новосибирск**.
 - Это время документальных коммитов, а не точное время исполнения локального Python. Приложение, Docker, сервер и бинарник не изменены.
+
+### JOB-009 — Read-only dependency archive verification and seven-file repair triage
+
+- **Исходный HEAD:** `a73ba6085cb71d08b99472b3bd8368921ae727c8` (ветка `work/m6-android-ingress`), development record commit `b48c980da64012f1048b827049b4bff5661abbd0`.
+- **Входные данные:** `android-bridge-v102-dependencies.tar.gz`, SHA256 `ce9f0403b8e7605477d2088b8a1a40766ba0a55d8710f1a50c5a00da4bf3ff77`; первый архив `android-bridge-v102-current-source.tar.gz`, SHA256 `02b960f9f9dd5d7f6486cc593217146df966dc05a1b50336008f6a50cb235a16`. Не публиковать архивы в GitHub.
+- **Вопрос:** можно ли исправить семь неработоспособных Kotlin-файлов минимально с учётом реальных существующих зависимостей, а не переписать весь механизм?
+- **Метод:** Python `tarfile.open(path, 'r:gz')`, перечисление объектов, локальный SHA256 архивов, `hashlib.sha256` для каждого содержимого, сравнение пересекающихся путей; статическое чтение текущих классов и call-sites без записи.
+- **Результат:** `27` regular Kotlin entries во втором архиве, `12` в первом, пересечений `10`, `HASH_MISMATCH=0`; `DEPENDENCY_ARCHIVE_INTEGRITY=PASS`, `OVERLAP_IDENTICAL=PASS_10_OF_10`. Просмотрен `BridgeAutoEnrollmentHttp.kt` с `tcpRoutes`; `BridgeRuntimeControl` с независимым `MethodChannel`; сохранены source interfaces process/config/diagnostics.
+- **Вывод статического анализа:** `BridgeCoreManager.kt` и `BridgeConfigManager.kt` не требуют автоматической полной замены; `BridgeControlChannel.kt`, `BridgeRuntimeControl.kt`, `BridgeXrayConfigRoute.kt` ремонтопригодны минимальными правками при сохранении API; `BridgeVlessRoutePlan.kt` подлежит замене алгоритма на проверенный pure route-policy; `BridgeVpnSession.kt` требует замены устаревшего service binding и корректной интеграции без `tcp_routes`. Этот вывод **не является функциональным PASS**.
+- **Подтверждённая блокировка:** `BridgeAutoEnrollmentHttp.kt` за пределами семёрки и current GitHub registrar сохраняют `tcp_routes`, тогда как новый approved discovery contract его отменяет. Нельзя подменять неподтверждённую индивидуальную маршрутизацию одним `params.service` для всех профилей; source-level правки без live contract evidence могут снова сломать VPN.
+- **Другие отсутствующие доказательства:** Android Git `tracked_dirty=true`, но точный `git status --short` не получен; Dart consumer код и live Discovery response не проверены. Ни один файл приложения и работающие службы не менялись.
+- **Итог:** `JOB-009=PASS_SOURCE_RECONCILIATION`; `IMPLEMENTATION=BLOCKED_PENDING_SAFE_APP_WORKTREE_AND_SERVICE_CONTRACT`; `ANDROID_GRADLE=NOT_RUN`; `DEVICE_E2E=NOT_RUN`. Время локальной проверки отдельно не измерялось; точное время записи — GitHub `created_at` commit.
