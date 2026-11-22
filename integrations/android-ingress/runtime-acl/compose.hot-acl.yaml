@@ -1,9 +1,10 @@
-# M6 Android-facing Bridge: pin verified Linux v1.0.2 runtime image.
+# M6 Android-facing Bridge, Linux v1.0.2 production image.
 # Combine with ../compose.yaml in the existing android-ingress Compose project.
-# Preserve the existing production bind 0.0.0.0:18443; do not change Xray, 3x-ui, or RU/FI Bridge.
-# Pre-existing image tervon-bridge-android-ingress:m6-runtime-acl remains available for rollback.
+# Requires Docker Compose >= 2.24.4 for !override semantics.
+# Replace, do not append to, base localhost port mapping: preserve live 0.0.0.0:18443.
+# Old image tervon-bridge-android-ingress:m6-runtime-acl is retained for rollback.
 services:
   android-bridge-decapsulator:
     image: tervon-bridge-android-ingress:v1.0.2
-    ports:
+    ports: !override
       - "0.0.0.0:18443:8443/tcp"
