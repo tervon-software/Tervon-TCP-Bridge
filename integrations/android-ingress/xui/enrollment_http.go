@@ -8,8 +8,6 @@ import (
     "net/http"
     "net/url"
     "strings"
-    "strconv"
-    "regexp"
     "time"
 )
 
@@ -26,8 +24,7 @@ type BridgeEnrollmentHTTP struct {
     RemoteURL string
     ServerName string
     Service string
-    TCPRoutes map[string]string // legacy M6 static routes
-    ConfirmedRoutes *ConfirmedRouteStore // opt-in v1.0.2; never mix with legacy static routes
+    ConfirmedRoutes *ConfirmedRouteStore // required full policy ACK
     ClientCAPEM []byte
     ServerCAPEM []byte // existing public server trust root for Android Bridge TLS
     ClientCAKey crypto.Signer
@@ -40,7 +37,6 @@ type bridgeDiscoveryResponse struct {
     RemoteURL string `json:"remote_url,omitempty"`
     ServerName string `json:"server_name,omitempty"`
     Service string `json:"service,omitempty"`
-    TCPRoutes map[string]string `json:"tcp_routes,omitempty"`
     PolicyGeneration string `json:"policy_generation,omitempty"`
     ClientCA string `json:"client_ca,omitempty"`
     ServerCA string `json:"server_ca,omitempty"`
@@ -55,7 +51,7 @@ type bridgeEnrollmentResponse struct {
 // terminated by a trusted reverse proxy, the parent must enforce HTTPS there.
 func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
     if h == nil || h.ClientCAKey == nil || h.Activate == nil ||
-        len(h.ClientCAPEM) == 0 || len(h.ServerCAPEM) == 0 || h.Service == "" || h.ServerName == "" {
+        len(h.ClientCAPEM) == 0 || len(h.ServerCAPEM) == 0 || h.ConfirmedRoutes == nil || h.Service == "" || h.ServerName == "" {
         return nil, errors.New("Bridge registration is not configured")
     }
     u, err := url.Parse(h.RemoteURL)
@@ -63,14 +59,6 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
         u.User != nil || u.RawQuery != "" || u.Fragment != "" ||
         u.Path != "/v2/stream" || u.RawPath != "" {
         return nil, errors.New("invalid configured Bridge endpoint")
-    }
-    // A service is an opaque identifier; never privilege protocol names.
-    for port, service := range h.TCPRoutes {
-        n, err := strconv.Atoi(port)
-        if err != nil || n < 1 || n > 65535 || strconv.Itoa(n) != port ||
-            !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`).MatchString(service) {
-            return nil, errors.New("invalid advertised TCP route")
-        }
     }
     now := h.Now
     if now == nil { now = time.Now }
@@ -84,13 +72,14 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
                 http.Error(w, "unsupported query", http.StatusBadRequest)
                 return
             }
-            routes := h.TCPRoutes
-            generation := ""
-            if h.ConfirmedRoutes != nil {
-                var ready bool
-                routes, generation, ready = h.ConfirmedRoutes.Snapshot()
-                if !ready {
-                    http.Error(w, "Bridge routes not confirmed", http.StatusServiceUnavailable)
+            routes, generation, ready := h.ConfirmedRoutes.Snapshot()
+            if !ready || len(routes) != 1 {
+                http.Error(w, "Bridge service generation not confirmed or ambiguous", http.StatusServiceUnavailable)
+                return
+            }
+            for _, service := range routes {
+                if service != h.Service {
+                    http.Error(w, "Bridge service selection not confirmed", http.StatusServiceUnavailable)
                     return
                 }
             }
@@ -98,10 +87,21 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
             _ = json.NewEncoder(w).Encode(bridgeDiscoveryResponse{
                 Available:true, RemoteURL:h.RemoteURL,
                 ServerName:h.ServerName,Service:h.Service,
-                TCPRoutes:routes, PolicyGeneration:generation,
+                PolicyGeneration:generation,
                 ClientCA:string(h.ClientCAPEM), ServerCA:string(h.ServerCAPEM),
             })
         case http.MethodPost:
+            routes, _, ready := h.ConfirmedRoutes.Snapshot()
+            if !ready || len(routes) != 1 {
+                http.Error(w, "Bridge service generation not confirmed", http.StatusServiceUnavailable)
+                return
+            }
+            for _, service := range routes {
+                if service != h.Service {
+                    http.Error(w, "Bridge service selection not confirmed", http.StatusServiceUnavailable)
+                    return
+                }
+            }
             if r.URL.RawQuery != "" ||
                 !strings.HasPrefix(r.Header.Get("Content-Type"), "application/pkcs10") {
                 http.Error(w, "expected CSR", http.StatusUnsupportedMediaType)

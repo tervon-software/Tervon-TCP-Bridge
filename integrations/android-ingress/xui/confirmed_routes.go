@@ -9,7 +9,7 @@ import (
 )
 
 // ConfirmedRouteStore holds only route mappings acknowledged by the runtime.
-// It is opt-in for v1.0.2; legacy static M6 discovery remains unchanged.
+// No fallback to a static M6 discovery map is permitted.
 // The single coordinator owning this store MUST serialize runtime writes and
 // ACK observation. Successful confirmation refers to a complete policy digest
 // (routes AND ACL), never the old M6 ACL-only reload digest.
