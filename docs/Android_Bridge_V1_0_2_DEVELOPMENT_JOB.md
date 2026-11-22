@@ -141,3 +141,9 @@
 - **Результат:** `JOB-008=PASS_READ_ONLY_SOURCE_RECONCILIATION`, `SEVEN_SHA_MATCH=PASS`, `DUPLICATE_RUNTIME_CONTROL=CONFIRMED_SOURCE`, `STATIC_TCP_ROUTES_REFERENCE=CONFIRMED_SOURCE`; `ANDROID_APP_REPLACEMENT=NOT_RUN`, `ANDROID_BUILD=NOT_RUN`, `DEVICE_E2E=NOT_RUN`.
 - **Ограничения:** архив не включает все классы Discovery/PKI и Dart consumers, поэтому полный source/API contract не установлен. `git status --short` приложения пока отсутствует при `tracked_dirty=true`. Нельзя применять массовый rewrite без проверки dirty paths. По причине NO INTERNET имеется только прежний device E2E FAIL и гипотезы; static audit не доказывает единственную причину.
 - **Время:** фактическое начало/конец исполнения Python отдельно не измерены; `EXEC_TIME=NOT_MEASURED`. Фиксацию работы датировать GitHub commit `created_at`, не подменять этим метку самого теста.
+
+### JOB-008 — GitHub timestamps evidence
+
+- Запись 012: `5924b007c5cce1f8840be48ece9155c1fa1b216a`, GitHub `created_at=2026-11-22 11:56:59 UTC` = **18:56:59 Новосибирск**.
+- JOB-008: `68b2689ec7880229fdbb3b1b1c339c12357b944e`, GitHub `created_at=2026-11-22 11:57:14 UTC` = **18:57:14 Новосибирск**.
+- Это время документальных коммитов, а не точное время исполнения локального Python. Приложение, Docker, сервер и бинарник не изменены.
