@@ -11,6 +11,7 @@ import (
     "strings"
     "testing"
     "time"
+    "context"
 )
 
 func TestBridgeEnrollmentHTTPDiscoveryAndCSR(t *testing.T) {
@@ -127,4 +128,45 @@ func TestDiscoveryAuthenticatedTCPRoutes(t *testing.T) {
         wrong.TCPRoutes=invalid
         if _,err:=wrong.Handler();err==nil {t.Fatalf("accepted invalid TCP route: %v",invalid)}
     }
+}
+
+func TestDiscoveryV102OnlyAdvertisesAcknowledgedGeneration(t *testing.T){
+ now:=time.Now().UTC().Truncate(time.Second)
+ _,caPEM,caKey:=testCertificateInputs(t,now)
+ store:=new(ConfirmedRouteStore)
+ h:=&BridgeEnrollmentHTTP{
+  RemoteURL:"https://bridge.example/v2/stream",ServerName:"bridge.example",
+  Service:"vpn",TCPRoutes:map[string]string{"30000":"old-static"},
+  ConfirmedRoutes:store,ClientCAPEM:caPEM,ServerCAPEM:caPEM,
+  ClientCAKey:caKey,Activate:func(string)error{return nil},
+ }
+ handler,err:=h.Handler()
+ if err!=nil{t.Fatal(err)}
+ discover:=func()(int,bridgeDiscoveryResponse){
+  w:=httptest.NewRecorder()
+  handler.ServeHTTP(w,httptest.NewRequest(http.MethodGet,"https://sub.example/.well-known/tervon-bridge",nil))
+  var payload bridgeDiscoveryResponse
+  if w.Code==http.StatusOK{
+   if err:=json.Unmarshal(w.Body.Bytes(),&payload);err!=nil{t.Fatal(err)}
+  }
+  return w.Code,payload
+ }
+ if code,_:=discover();code!=http.StatusServiceUnavailable{t.Fatalf("unconfirmed routes advertised: %d",code)}
+ digest:=strings.Repeat("a",64)
+ if err:=store.PublishAfterCoreACK(context.Background(),map[string]string{"55535":"vpn-tcp"},digest,func(_ context.Context,got string)error{
+  if got!=digest{t.Fatal("wrong digest")}
+  return nil
+ });err!=nil{t.Fatal(err)}
+ status,resp:=discover()
+ if status!=http.StatusOK||resp.PolicyGeneration!=digest||resp.TCPRoutes["55535"]!="vpn-tcp"{
+  t.Fatalf("confirmed generation not advertised: %d %+v",status,resp)
+ }
+ if _,found:=resp.TCPRoutes["30000"];found{t.Fatal("legacy static route leaked into confirmed discovery")}
+ if err:=store.PublishAfterCoreACK(context.Background(),map[string]string{"55636":"xhttp"},strings.Repeat("b",64),func(context.Context,string)error{return io.ErrUnexpectedEOF});err==nil{
+  t.Fatal("failed ACK accepted")
+ }
+ status,resp=discover()
+ if status!=http.StatusOK||resp.PolicyGeneration!=digest||resp.TCPRoutes["55535"]!="vpn-tcp"{
+  t.Fatalf("unconfirmed generation replaced acknowledged routes: %d %+v",status,resp)
+ }
 }
