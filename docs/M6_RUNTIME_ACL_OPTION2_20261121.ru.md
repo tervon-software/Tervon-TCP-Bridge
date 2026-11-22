@@ -1,5 +1,7 @@
 # M6 — вариант 2: обновление ACL без перезапуска Android Bridge
 
+> **АРХИВНЫЙ СНИМОК ЭТАПА, НЕ ДЕЙСТВУЮЩАЯ ИНСТРУКЦИЯ (ревизия 2026-11-22).** Датированные статусы, старые примеры адресов/портов, команды cutover/patch и признаки NOT_IMPLEMENTED/PENDING ниже не отражают текущее состояние M6. Не выполнять команды из этого документа без нового утверждённого плана и сверки фактического кода/сервисов. Актуальные факты: [`DEVELOPMENT_PLAN.md`](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/work/m6-android-ingress/docs/DEVELOPMENT_PLAN.md), [`M6_AUDIT_2026-11-22.md`](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/work/m6-android-ingress/docs/M6_AUDIT_2026-11-22.md). Android Bridge E2E = FAIL; исторические PASS относятся только к явно названному слою.
+
 **Решение пользователя:** вариант 2, 21.11.2026. Продолжаем тот же M6 — автоматическая регистрация mTLS после включения «Обход DPI». Существующие P-256 CSR, client CA, TLS 1.3, HTTP/2, Padding/Jitter, серверная TLS-идентичность `vp.xrayvless.online` **не меняются**. Не проверяем действительность VLESS-подписки при выпуске Bridge-сертификата; проверка доступа к VPN остаётся за Xray.
 
 ## Что меняется
