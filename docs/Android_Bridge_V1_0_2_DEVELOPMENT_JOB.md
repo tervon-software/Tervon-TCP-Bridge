@@ -216,3 +216,10 @@
 - **Warnings:** Kotlin embedded/plugin mismatch и Kotlin/AGP migration notices, но нет данных, что они вызвали этот FAIL. Версии и build config не изменять без отдельного решения.
 - **Next:** read-only listing `:app:tasks --all`, inspection of actual `test` source sets and Gradle plugin settings before choosing any test command. Do not invent a test task or count this as unit-test execution.
 - **Status:** `UNIT_TEST_TASK=ABSENT`, `ANDROID_UNIT_TESTS=NOT_RUN`, `KOTLIN_COMPILE=PASS_PREVIOUS`, `DEVICE_E2E=NOT_RUN`.
+
+### JOB-016 — поиск доступных Android тестовых задач и тестовых исходников
+
+- **Цель:** выяснить, какой test task реально доступен и есть ли unit/instrumentation источники, прежде чем запускать тесты M6.
+- **Оператор:** `:app:tasks --all` с `--offline --no-daemon --console=plain`; `find app/src/test app/src/androidTest`; `grep` Gradle build/plugins. `BUILD SUCCESSFUL in 15s`, `READ_ONLY_INSPECTION=COMPLETE`, `COMMAND_EXIT_CODE=0`.
+- **Наблюдение:** `testDebugUnitTest` существует, `testReleaseUnitTest` отсутствует. `ABSENT=app/src/test`; `ABSENT=app/src/androidTest`; `org.jetbrains.kotlin.android` plugin и `android.builtInKotlin=false` используются. Следовательно, запуск test task не обеспечит утверждённое функциональное покрытие Bridge.
+- **Результат:** `TEST_TASK_INVENTORY=PASS`, `BRIDGE_UNIT_TESTS=NOT_PRESENT`, `UNIT_TEST_EXECUTION=NOT_RUN`, `KOTLIN_COMPILE=PREVIOUS_PASS`, `DEVICE_TCP_E2E=NOT_RUN`, `SERVER_UNTOUCHED=YES`.

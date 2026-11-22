@@ -329,3 +329,12 @@
 - **Диагноз:** ранее ассистент выбрал имя Gradle-задачи без чтения текущего списка задач проекта. Никакие unit tests не исполнялись. Ранее подтверждённая Kotlin-компиляция JOB-014 остаётся PASS; по этому логу нет причины менять Gradle/Kotlin версии или рабочий APK.
 - **Граница:** `APK_BUILD=NOT_RUN`, `ANDROID_E2E=NOT_TESTED`, `SERVER_SERVICES=UNTOUCHED`. Следующее действие — только чтение списка фактических задач `:app:tasks --all` и наличия unit-test исходников. Никаких изменений кода/серверных служб.
 - **Documentation parent HEAD:** `d06760d20b2e2580bb17657f9210544dcfe9e86b`; дата пользовательской проверки 2026-11-22, точное время на Homeserver не предоставлено.
+
+### Запись 022 — инвентаризация реальных Android Gradle test tasks
+
+- **Оператор, 2026-11-22:** read-only `:app:tasks --all --offline --no-daemon --console=plain` + проверка исходников тестов + настроек Gradle завершились `COMMAND_EXIT_CODE=0`, `READ_ONLY_INSPECTION=COMPLETE`, Gradle `BUILD SUCCESSFUL in 15s`.
+- **Фактически есть:** `testDebugUnitTest`, `test`, `assembleUnitTest`, `check`, `connectedDebugAndroidTest`, `connectedAndroidTest`. `testReleaseUnitTest` отсутствует; это причина предыдущего JOB-015 FAIL. **Новых запусков unit-тестов нет.**
+- **Тестовых источников нет:** `app/src/test` отсутствует, `app/src/androidTest` отсутствует. Само наличие Gradle задачи не доказывает покрытие Bridge. Нет оснований выдавать `testDebugUnitTest` за функциональный тест передачи TCP.
+- **Настройки:** `com.android.application`, `org.jetbrains.kotlin.android`, `android.builtInKotlin=false`; предупреждения о будущей миграции Kotlin/AGP не требуют изменения текущей сборки в M6.
+- **Конкретный оставшийся риск:** Kotlin `BridgeVpnSession.kt` в двухфайловом кандидате получает `service` из доверенного Discovery; это ещё не доказывает точное соответствие сервиса backend выбранного TCP-профиля. Не компенсировать неизвестность новой Android таблицей или изменением серверного Bridge.
+- **HEAD документации до этой записи:** `70308154f1d9ea9f2da5a4547a18ac645e2fc565`. `GRADLE_TASK_DISCOVERY=PASS`, `ANDROID_UNIT_TEST_COVERAGE=ABSENT`, `KOTLIN_COMPILE=PREVIOUS_PASS`, `APK_BUILD=NOT_RUN`, `DEVICE_E2E=NOT_RUN`, `SERVER_SERVICES=UNTOUCHED`.
