@@ -151,6 +151,13 @@ def main():
         if not src.is_file():
             raise ValueError("missing route policy helper: "+name)
         updates[dst] = src.read_text()
+    # Source-only integration test of the real isolated subprocess reload.
+    # Never install this file in a live Docker image.
+    test_src = Path(__file__).resolve().parent / "policy_ack_integration_test.go"
+    test_dst = go / "cmd/bridge/policy_ack_integration_test.go"
+    if test_dst.exists() or test_dst.is_symlink() or not test_src.is_file():
+        raise ValueError("refusing to overwrite or omit isolated route ACK test")
+    updates[test_dst] = test_src.read_text()
     print("M6_V102_ROUTE_SOURCE_CHECK=PASS")
     if a.check:
         return
