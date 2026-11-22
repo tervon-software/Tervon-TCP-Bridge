@@ -55,6 +55,19 @@ class TestRuntimeGRPCProjection(unittest.TestCase):
             with self.assertRaises(ValueError):
                 extract([bad])
 
+    def test_trojan_and_socks_server_config(self):
+        for protocol in ("trojan", "socks", "http"):
+            with self.subTest(protocol=protocol):
+                inbound=handler(port=30000,protocol=protocol)
+                inbound["proxySettings"]["_TypedMessage_"] = (
+                    "xray.proxy."+protocol+".ServerConfig")
+                self.assertEqual(extract([inbound])[0][2], protocol)
+
+    def test_dokodemo_config(self):
+        inbound=handler(port=10811)
+        inbound["proxySettings"]["_TypedMessage_"]="xray.proxy.dokodemo.Config"
+        self.assertEqual(extract([inbound])[0][2], "dokodemo-door")
+
     def test_default_tcp_network(self):
         bad = handler()
         bad["receiverSettings"].pop("streamSettings")
