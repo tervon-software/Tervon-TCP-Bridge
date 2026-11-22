@@ -166,3 +166,19 @@ go vet ./...
 **Ограничения источников:** `SOURCE_HEAD` фиксирует commit GitHub с source-only overlay. Изолированная worktree остаётся на Git commit релиза v1.0.1 с локальными незакоммиченными наложенными файлами; её содержимое проверено нормализованным сравнением указанных файлов и тестами, **но отдельный Git commit этой worktree не создан**. Не утверждать, что реально работающие серверы обновлены.
 
 **Следующий утверждённый этап 3:** интеграция проверенного snapshot с 3x-ui inbound API, фактическим Xray и HTTPS discovery. Прежде чем вносить изменения: сверить актуальный HEAD, зарегистрированные контракты discovery/registrar и правила безопасного обновления. Не запускать и не менять работающие службы без отдельного согласованного внедрения.
+
+## 2026-11-22 — Этап 3: первичная ревизия контрактов перед интеграцией
+
+**Статус:** `READ_ONLY_SOURCE_AUDIT`; `STAGE3_IMPLEMENTATION=NOT_STARTED`; `STAGE3_PASS=NO`. Исследовано актуальное дерево GitHub после подтверждения PASS этапа 2.
+
+**Просмотренные GitHub файлы:** `integrations/android-ingress/xui/cmd/m6-auto-registrar/main.go`, `integrations/android-ingress/xui/enrollment_http.go`, `integrations/android-ingress/xui/client.go`, `integrations/android-ingress/xui/inbounds.go`.
+
+**Фактические точки интеграции:**
+1. `cmd/m6-auto-registrar/main.go`, `configuredTCPRoutes(root)` (строка ~112) сейчас читает `config/server.json` и возвращает карту `backend TCP-port → service`. В `main` (строка ~186) результат устанавливается при инициализации, не привязан к live API.
+2. `enrollment_http.go`, `Handler.TCPRoutes` (строка ~29) хранит карту портов, а GET discovery отдаёт `tcp_routes` из этой карты (~89). Встроенного versioned update для одновременной смены routes + discovery ещё нет.
+3. `xui/inbounds.go` реализует только проверенное чтение `GET /panel/api/inbounds/list/slim`; этот метод **не** включён в исполнение регистратора, не сверяет actual Xray и не обновляет Decapsulator.
+4. `xui/client.go` содержит прежний read-only client API, который не заменяет inbound API.
+
+**Критический инвариант для этапа 3:** опубликованные `tcp_routes` должны соответствовать **фактически применённой** политике Decapsulator, а не только данным панели. API без подтверждённого backend в Xray или без подтверждения применения в ядре не даёт права рекламировать порт как доступный. При несогласованности/недоступности данных не открывать произвольный backend и не заявлять `CONNECTED`.
+
+**Следующая работа:** точная ревизия клиентского/серверного lifecycle, затем минимальный механизм публикации согласованного snapshot. Порядок безопасного обновления, валидатор live Xray, срок актуальности API и подтверждение смены политики требуется реализовать и проверить тестами в рамках этапа 3. Рабочие службы, секреты и Android не менялись.
