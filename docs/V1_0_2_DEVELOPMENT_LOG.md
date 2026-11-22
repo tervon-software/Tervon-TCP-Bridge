@@ -431,3 +431,23 @@ go vet ./...
 **Входные проверки / подтверждение:** опубликованные исходники в GitHub `SOURCE_COMMITTED`, но `GO_TEST=NOT_RUN_ON_HOMESERVER`, `RACE=NOT_RUN`, `VET=NOT_RUN`, `RUNTIME_ACK=NOT_CONNECTED`, `DISCOVERY_V102_LIVE=NOT_CONNECTED`, `STEP3_OVERALL=IN_PROGRESS`, `V102_RELEASE=NO`.
 
 **Следующая проверка на Homeserver:** на точном новом HEAD `go test -count=1 -run '^(TestConfirmedRouteStore|TestDiscoveryV102)' -v .`, `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...`. Если FAIL — исправить только текущий подшаг. Не затрагивать работающие службы.
+
+## 2026-11-22 — Этап 3: Homeserver PASS подтверждённой таблицы и HTTPS discovery
+
+**Источник:** полный операторский терминальный вывод Homeserver. **Точно испытанный GitHub SOURCE_HEAD:** `a1f682f5bedee509368db961296be0ddfd6992e7`; ветка `work/m6-android-ingress`; `git pull --ff-only` выполнен как `Fast-forward 10aa483..a1f682f`. Go-модуль: `integrations/android-ingress/xui`.
+
+**Проверенные изменения:** `confirmed_routes.go`, `confirmed_routes_test.go`, `enrollment_http.go`, `enrollment_http_test.go`; сохранён опциональный legacy static discovery и проверено правило публикации только после доверенного callback ACK.
+
+| Проверка | Доказательство | Статус |
+| --- | --- | --- |
+| `go test -count=1 -v -run '^(TestConfirmedRouteStore\|TestDiscoveryV102)' .` | PASS `TestConfirmedRouteStoreRequiresCoreACK`, `TestConfirmedRouteStoreRejectsBadGenerationWithoutMutation`, `TestConfirmedRouteStoreConcurrentReaders`, `TestDiscoveryV102OnlyAdvertisesAcknowledgedGeneration`; `ROUTES_RC=0` | **PASS** |
+| `go test -count=1 ./...` | Все 6 Go packages `ok`, `TEST_RC=0` | **PASS** |
+| `go test -race -count=1 ./...` | Все 6 Go packages `ok`, `RACE_RC=0` | **PASS** |
+| `go vet ./...` | `VET_RC=0`, предупреждений нет | **PASS** |
+| Состояние SSH | `SSH_CONSOLE=OPEN` | **PASS** |
+
+**Точный смысл результата:** `CONFIRMED_ROUTE_SNAPSHOT=TEST_PASS`, `DISCOVERY_FAIL_CLOSED=TEST_PASS`, `DISCOVERY_GENERATION_FIELD=TEST_PASS` **для приведённого HEAD**, с тестовым доверенным callback. Это не подтверждение работающей синхронизации API 3x-ui/Remnawave → Xray → RuntimePolicy → Docker → discovery.
+
+**Ограничения:** реальный проверяющий Docker route ACK ещё не подключён, `ConfirmedRouteStore` не доказывает самостоятельно связь предоставленного digest с запущенным ядром и не синхронизирует его с фактическим Xray. Смена маршрутов в активном контейнере не выполнялась. `REAL_CORE_ACK=NOT_IMPLEMENTED`; `LIVE_DISCOVERY_SYNC=NOT_CONNECTED`; `XRAY_PROTOCOL_E2E=NOT_VERIFIED`; `ANDROID_INTERNET=NOT_PASS`; `STEP3_OVERALL=IN_PROGRESS`; `RELEASE_V1_0_2=NO`.
+
+**Следующий участок этапа 3:** ревизия существующих digest и Docker ACK контрактов, затем минимальное внедрение доверенного подтверждения поколения реального кандидата ядра в контроллер на изолированном стенде. Перед публикацией verify policy bytes/digest и последствия ошибки подтверждения; не менять действующие Docker, Xray, 3x-ui, Remnawave или Android без отдельного согласования.
