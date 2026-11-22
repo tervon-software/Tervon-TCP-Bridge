@@ -55,8 +55,17 @@ func(s *ConfirmedRouteStore) PublishAfterCoreACK(ctx context.Context, routes map
  s.mu.Lock()
  defer s.mu.Unlock()
  if err:=ctx.Err();err!=nil{return err}
- if err:=confirm(ctx,digest);err!=nil{return errors.New("Decapsulator policy generation not confirmed")}
- if err:=ctx.Err();err!=nil{return err}
+ // After attempting a core update, failure/timeout has ambiguous outcome:
+ // core may have applied a new policy without the ACK reaching us.
+ // Fail closed for NEW discovery rather than advertise a possibly stale map.
+ if err:=confirm(ctx,digest);err!=nil{
+  s.ready=false
+  return errors.New("Decapsulator policy generation not confirmed")
+ }
+ if err:=ctx.Err();err!=nil{
+  s.ready=false
+  return err
+ }
  s.current=copied
  s.digest=digest
  s.ready=true
