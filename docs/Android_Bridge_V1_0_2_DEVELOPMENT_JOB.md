@@ -78,3 +78,14 @@
 - `LOG_COMMIT=0ff4a09647029dbfdd9f7a14650d77f2621a5d75`, GitHub `created_at=2026-11-22T11:15:48Z` (Новосибирск 18:15:48).
 - `JOB_COMMIT=d3981c3e4ff7fee335fbdcdd727c237b72a24e02`, GitHub `created_at=2026-11-22T11:15:51Z` (Новосибирск 18:15:51).
 - Изменены только журналы; Android tests `NOT_RUN`, services `UNCHANGED`.
+
+### JOB-004 — Historical ARM64 core, diagnostic integration and APK device E2E evidence (read-only recovery)
+
+- **Source baseline:** `a29f0d45a83b012e34fc96ac05b3332e3380234e` before record; `work/m6-android-ingress`. **Input:** directly reread `docs/V1_0_2_DEVELOPMENT_LOG.md` lines 949–961 and 1031–1061. Новых команд сборки/установки/ADB **не выполнялось**.
+- **Вопрос:** действительно ли v1.0.2 Go ARM64 был собран, снабжён диагностикой, установлен в проект и использован в APK? Что доказал Android тест?
+- **Сборка 1 (исторический operator PASS):** Go 1.25.5, `GOOS=android GOARCH=arm64 CGO_ENABLED=0`, AArch64 PIE, SHA `d71607005c510ec1d97787f656b4b5580d10d750ec1031b9b18630af266ac487`.
+- **Сборка 2 с диагностикой (operator PASS):** guarded `apply_go.py --check/--apply` на isolated v1.0.2 source; 6 packages `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...`, Android arm64 `go build -trimpath ./cmd/bridge`, `M6_GO_BATCH_RC=0`. Итоговый `libtervonbridge.so` SHA `a7f693981f111436cd0023ced47417b9f7f222df33a60c319c1a4b073acefccd`.
+- **Встройка (operator PASS):** обновлён `/opt/tervonvpndpi/android/app/src/main/jniLibs/arm64-v8a/libtervonbridge.so` атомарно с SHA-проверкой; до этого сохранён старый ELF. `M6_INSTALL_RC=0`. Kotlin diagnostics `ALREADY_APPLIED`, `./gradlew --offline :app:compileDebugKotlin` success, `KOTLIN_RC=0`; Flutter test `NOT_RUN` (SDK CLI отсутствовал, RC127).
+- **Реальный телефон (operator FAIL):** APK установлен; ADB logcat 15:41–15:43: XHTTP/splithttp GET/POST `EOF`, loopback TCP `connection reset by peer`, `TervonBridge: code=UNKNOWN generation=1`; интернет не работает. Точная стадия корневого отказа НЕ УСТАНОВЛЕНА. Предположение о виновности старого Android wrapper не является измеренной root cause.
+- **Отличие прошлого от новой разработки:** `JOB-004=PASS_HISTORICAL_EVIDENCE_RETRIEVAL`; `ANDROID_GO_DIAGNOSTICS_INSTALLED=PASS_OPERATOR_RECORD`; `ANDROID_APK_TEST=FAIL_OPERATOR_RECORD`; `NEW_ANDROID_IMPLEMENTATION_TESTS=NOT_RUN`. Никакие службы, исходники, APK или бинарники не менялись этим исследованием.
+- **Время:** время исторического теста телефона известно только из фрагмента ADB 15:41–15:43, **часовой пояс этой записи не установлен**; не интерпретировать его как время Новосибирска или точный Git commit. Время нового документационного коммита установить GitHub metadata.
