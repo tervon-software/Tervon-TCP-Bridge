@@ -198,3 +198,21 @@
 - **Тесты инструмента:** `python3 -m unittest -v test_current_app_preflight.py`: 3/3 PASS (read-only/no-source-leak, missing root refused, unsafe symlink refused), `python3 -m py_compile` PASS; local source SHA256 `82adb424e068b6d74e40848a16d53df8df5ee59e7a03978ce2b060356438ee97`, test `4c000b8316a9730818e0ed93f0384bb5f4d4593d7f0bfaaf66b0fe3167c4f050`. Git blob SHA exact: `e8ecf08df3e7dd561ce0e4af79e83e729b3e9185`, `fb7d1da713fd2e609b68fa64bf9376f06d85102f`, сверены **до commit**.
 - **GitHub commit:** `012faf18a5618071fcf5fb4c1345cad39dde1d00`, GitHub `created_at=2026-11-22T11:46:44Z` = **18:46:44 Новосибирск (+07)**. Изменены только два test/preflight файла в новом каталоге Android Bridge.
 - **Доказанные результаты:** `ROUTE_POLICY_UNIT=PASS_REPEAT_EXACT_GIT`; `CURRENT_APP_PREFLIGHT_TOOL=PASS_SYNTHETIC`; `CURRENT_APP_PREFLIGHT_ON_HOMESERVER=NOT_RUN`; `CURRENT_APP_SOURCE_IDENTIFIED=NO`; `APP_SEVEN_FILES_CLEARED=NOT_RUN`; `APK/DEVICE_E2E=NOT_RUN`. Следующий шаг в **том же модуле** — прочитать реальный output preflight Homeserver и сверить source call-sites до source replacement; никаких предположений о действующем Android.
+
+### Запись 011 — Фактический preflight Homeserver от оператора, 2026-11-22
+
+- **Источник:** загруженный оператором вывод `current_app_preflight.py --app-root /opt/tervonvpndpi` после `git pull --ff-only origin work/m6-android-ingress`; Bridge GitHub fast-forward `36864cb..0e1aa67`. Проверка только чтение; `CURRENT_APP_PREFLIGHT=PASS_READ_ONLY`. Фактическое время выполнения команды не предоставлено, `EXECUTION_TIME=UNKNOWN`; за дату использовать timestamp коммита этого журнала, НЕ выдавать его за время preflight.
+- **Bridge HEAD на время принятия результата:** `0e1aa67bff5585048f6ae86310359c2cb1ef6789`.
+- **Действующий Git TervonVPN:** `/opt/tervonvpndpi`, ветка `feature/status-ping-cleanup`, HEAD `22ff78a9dbabc1544a53b9ac950f78413f25b4fb`, **`tracked_dirty=true`**. До редактирования обязательно получить `git status --short` и source, чтобы не уничтожить чужие незакоммиченные изменения.
+- **Подтверждённое ядро:** `android/app/src/main/jniLibs/arm64-v8a/libtervonbridge.so` присутствует, SHA256 **`a7f693981f111436cd0023ced47417b9f7f222df33a60c319c1a4b073acefccd`**, совпадает с диагностическим Go ARM64 v1.0.2. `GO_CORE_PRESERVE=REQUIRED`.
+- **Семь старых файлов, точно один экземпляр каждого в `android/app/src/main/kotlin/com/tervonvpndpi/app/`:**
+  1. `BridgeConfigManager.kt` SHA256 `0c1b2815e2c7d866e9870411052c80cfd316b597044ca48fc2f99369e3a80e0d`
+  2. `BridgeControlChannel.kt` SHA256 `0e503518ef49e860e0a48be2b25f68dea3705d39d9602e936604c487af750eef`
+  3. `BridgeCoreManager.kt` SHA256 `aceadb4b9431a8ac33ece6b60c13547e3917bb0cfb8e5efe59ec02c03e4d369e`
+  4. `BridgeRuntimeControl.kt` SHA256 `a6f9695d4cdc6a3d120ac0f685ddd6f2d9ed4a122469e13135e542dbfacdc596`
+  5. `BridgeVlessRoutePlan.kt` SHA256 `b2d211029d74d29e9e9fdd4b26dc45046d65c520d6d4f4053c3850b82d6dd26c`
+  6. `BridgeVpnSession.kt` SHA256 `5bcf45125cdad9b9220ef7d983e255f2d6a92342b65fc2e2ceccdabf29681838`
+  7. `BridgeXrayConfigRoute.kt` SHA256 `d59e1c147507e70b85554d3d2dd31296ca4a81691529310bd99de201a2b09def`
+- **Установленные зависимости (только locations, не доказательство поведения):** `VpnForegroundService.kt` содержит 6 упоминаний `BridgeVpnSession`; `MainActivity.kt` — `BridgeControlChannel`; `BridgeRuntimeSettings.kt` — `BridgeVpnSession`; `BridgeClientPemHandoff.kt` — `BridgeConfigManager`; `BridgeCoreManager.kt` — `BridgeProcessDiagnostics` (всего 17 в разных классах) и `BridgeConfigManager`. `BridgeVpnSession` ссылается на route plan, Xray config route, runtime control и core.
+- **Вывод:** физически старые семь файлов **не удалены**; полный runtime/API contract этих вызовов по списку номеров строк НЕ восстановлен. Для точной минимальной замены без поломки обычного VPN необходимы реальные тексты семи Kotlin-файлов и вызывающих участков (приватно, без публикации), плюс статус незакоммиченных файлов. Старые архивные исходники больше не брать за основу.
+- **Статус:** `CURRENT_APP_PREFLIGHT=PASS_OPERATOR_RECORDED`; `ARM64_DIAGNOSTIC_CORE_SHA=PASS_OPERATOR_RECORDED`; `SEVEN_FILES_LOCATED=7_OF_7`; `CALLSITE_LOCATIONS=FOUND`; `APP_SOURCE_CONTENT=NOT_READ`; `WORKTREE_CLEAN=NO`; `APP_INTEGRATION=BLOCKED_PENDING_CURRENT_SOURCE`; `ANDROID_E2E=NOT_RUN_NEW_IMPL`. Ни один файл приложения, Docker или Go не изменён.
