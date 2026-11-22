@@ -37,8 +37,8 @@ func TestConfirmedRouteStoreRejectsBadGenerationWithoutMutation(t *testing.T){
  }
  if err:=store.PublishAfterCoreACK(context.Background(),map[string]string{"55535":"vpn-tcp"},"bad-digest",func(context.Context,string)error{return nil});err==nil{t.Fatal("bad digest accepted")}
  if err:=store.PublishAfterCoreACK(context.Background(),map[string]string{"55535":"vpn-tcp"},strings.Repeat("b",64),func(context.Context,string)error{return errors.New("core refused")});err==nil{t.Fatal("missing core ACK accepted")}
- got,d,ok:=store.Snapshot()
- if !ok||d!=d1||len(got)!=1||got["30000"]!="vpn"{t.Fatalf("previous acknowledged snapshot lost: %v %s %v",got,d,ok)}
+ _,_,ok:=store.Snapshot()
+ if ok{t.Fatal("discovery remained enabled after ambiguous core ACK failure")}
 }
 
 func TestConfirmedRouteStoreConcurrentReaders(t *testing.T){
