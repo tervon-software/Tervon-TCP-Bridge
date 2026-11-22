@@ -648,3 +648,15 @@ go vet ./...
 **Граница следующего решения:** перед реализацией клиента gRPC нужно согласовать способ получения typed protobuf без изменения существующего `go.mod`/Go toolchain: (A) отдельно проверенный read-only helper, использующий поддерживаемый системный gRPC клиент, или (B) узкая согласованная зависимость `grpc-go` + protoc-generated schemas совместимой версии. Не вводить новую библиотеку или бинарник самостоятельно. Первый тест должен быть read-only, с доступом только к loopback API и выводом redacted tag/port/protocol/transport; `Add/Remove/Alter` не вызывать. Сначала доказать поддержку метода у фактически установленной версии.
 
 **Статус:** `UPSTREAM_HANDLER_LIST_INBOUNDS=SOURCE_CONFIRMED`, `HOT_APPLY_BEHAVIOR=SOURCE_CONFIRMED`, `INSTALLED_XRAY_LIST_INBOUNDS=NOT_TESTED`, `APPLIED_XRAY_EVIDENCE=NOT_CONNECTED`, `PRODUCTION_SERVICES=UNCHANGED`, `STAGE3=IN_PROGRESS`, `RELEASE=NO`.
+
+## 2026-11-22 — M6 этап 3: снят риск новой gRPC-зависимости при первичной read-only диагностике
+
+**Дополнительная сверка того же pinned Xray-core `676eaf66f8f0`:** открыты `main/commands/all/api/api.go`, `main/commands/all/api/inbounds_list.go` и `main/commands/all/api/shared.go`. Источник: https://github.com/XTLS/Xray-core/blob/676eaf66f8f0/main/commands/all/api/inbounds_list.go .
+
+**Проверенный факт по исходнику:** штатный CLI уже имеет `xray api lsi --server=127.0.0.1:<api-port>` (`cmdListInbounds`); его `executeListInbounds` вызывает `HandlerService.ListInbounds`, причём `isOnlyTags` по умолчанию **false**. Вызов получает `ReceiverSettings` и `ProxySettings`, сериализует proto JSON через `showJSONResponse`. `--timeout` по умолчанию 3 секунды. Команда по коду предназначена для чтения; никаких Add/Remove/Alter не вызывается.
+
+**Коррекция предыдущего блока:** отдельная gRPC-библиотека или CLI grpcurl **не нужны для первоначального подтверждения поддержки `ListInbounds`**, если штатный бинарник Xray, установленный на Homeserver, поддерживает `api lsi`. Не менять `go.mod`, Go toolchain, существующие службы и версионирование. Для **долгосрочного автоматического** адаптера способ вызова штатного CLI либо зависимость согласовать отдельно только после подтверждения installed runtime.
+
+**Безопасность:** полный JSON `api lsi` может содержать `proxySettings` с чувствительными полями; **никогда не выводить его целиком в диалог/лог**, не сохранять без защиты. Будущая read-only проверка должна в локальном процессе сделать JSON parse, оставить только безопасную проекцию `tag, ports, network, type` после строгой валидации typed messages и вернуть только redacted summary; при отсутствии API/метода — `FAIL_CLOSED` без попытки изменить конфигурацию. Адрес Xray API не выдумывать: должен быть получен из установленной действующей конфигурации, а не из публичного порта VPN.
+
+**Статусы:** `PINNED_UPSTREAM_XRAY_API_LSI=SOURCE_CONFIRMED`; `INSTALLED_XRAY_API_LSI=NOT_TESTED`; `NEW_DEPENDENCY_FOR_READ_ONLY_PROBE=NOT_REQUIRED_IF_CLI_SUPPORTED`; `XRAY_APPLIED_EVIDENCE=NOT_CONNECTED`; `STAGE3=IN_PROGRESS`.
