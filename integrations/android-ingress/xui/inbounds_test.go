@@ -17,7 +17,7 @@ func TestListInboundsSlim(t *testing.T) {
 		if r.Header.Get("Authorization") != "Bearer test-secret" {
 			t.Errorf("missing bearer token")
 		}
-		fmt.Fprint(w, `{"success":true,"obj":[{"id":2,"port":55636,"protocol":"vless","enable":true,"streamSettings":{"network":"xhttp","security":"tls"}},{"id":5,"port":55535,"protocol":"vless","enable":true,"streamSettings":"{\\"network\\":\\"tcp\\",\\"security\\":\\"tls\\"}"},{"id":7,"port":30000,"protocol":"trojan","enable":false,"streamSettings":{"network":"tcp","security":"tls"}}]}`)
+		fmt.Fprint(w, `{"success":true,"obj":[{"id":2,"port":55636,"protocol":"vless","enable":true,"streamSettings":{"network":"xhttp","security":"tls"}},{"id":5,"port":55535,"protocol":"vless","enable":true,"streamSettings":"{\"network\":\"tcp\",\"security\":\"tls\"}"},{"id":7,"port":30000,"protocol":"trojan","enable":false,"streamSettings":{"network":"tcp","security":"tls"}}]}`)
 	}))
 	defer s.Close()
 	c := adapter(t, s)
