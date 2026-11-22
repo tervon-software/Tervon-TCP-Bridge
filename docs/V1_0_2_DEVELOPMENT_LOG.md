@@ -704,3 +704,13 @@ go vet ./...
 **Не делать ложных выводов:** подтверждённый ранее `api lsi --isOnlyTags=true` остаётся PASS (5 handlers), но попытка полного разбора показала недифференцированную ошибку скрипта. Широкий except скрывает конкретный этап (конфиг / полный RPC / protojson / бинарный protobuf), так что **корень BLOCKED не определён**. `XRAY_APPLIED_ROUTE_DETAILS=NOT_CONFIRMED`, production без изменений. Нельзя менять 3x-ui/Xray/Docker на основании этого BLOCKED.
 
 **Исправление в рамках этого же диагностического компонента:** минимально добавить фиксированный, безопасный `FAILED_STAGE` (без печати исключения, конфиг-пути, tags/секретов), исключать service inbound `api` из декодирования proxySettings. Повторная проверка одним пакетом после source commit; при отсутствии подтверждённого результата оставаться BLOCKED. 
+
+## 2026-11-22 — M6 этап 3: фикс локальной диагностики после BLOCKED (SOURCE COMMITTED, HOST TEST PENDING)
+
+**Точная ветка и HEAD перед документацией:** `work/m6-android-ingress`, `2e2ed448fa371d2e04dee5830d2f0f8dfa973c10`. После зафиксированного BLOCKED на `7e3dc502549a51b003b563b03c0b42a7d1eee243` изменён **только** диагностический скрипт и его тест, не Xray/3x-ui/Bridge core.
+- `integrations/android-ingress/check_xray_grpc_runtime.py`, commit `d23c0d9880b91a14c2d4cc8ca7368c116e36b9e1`: для исключений теперь безопасная категория `RUNTIME_<FAILED_STAGE>_UNAVAILABLE`, а не общий `RUNTIME_SCHEMA_OR_SOURCE_UNAVAILABLE`. Разделены `PROCESS_SOURCE`, `CONFIG_SOURCE`, `CONFIG_READ`, `GRPC_QUERY`, `GRPC_RESPONSE_JSON`, `GRPC_PROTOBUF_PROJECTION`, `REFERENCE_COMPARISON` (в stdout возвращается только контролируемое фиксированное имя стадии). Внутренний `tag=api` не является VPN service backend и больше не требует `ProxySettings` при protobuf decoding.
+- `integrations/android-ingress/test_check_xray_grpc_runtime.py`, commit `2e2ed448fa371d2e04dee5830d2f0f8dfa973c10`: добавлен тест исключения внутреннего API handler при наличии валидного VPN inbound.
+
+**Проверка ожидается:** единый пакет `python3 -m unittest -v test_check_xray_grpc_runtime.py` (ожидается 5 тестов), `python3 -m py_compile check_xray_grpc_runtime.py test_check_xray_grpc_runtime.py`, затем **один** `python3 check_xray_grpc_runtime.py`. Ошибка или `BLOCKED` не являются PASS. Нельзя выводить `stderr`, `raw ListInbounds`, tags/credentials, путь config/API адрес. Нельзя запускать `AddInbound`, `RemoveInbound`, `AlterInbound`; работающие службы не менять. Если снова BLOCKED, классифицированная категория позволяет остановиться и исправить один конкретный этап без бессмысленного повторения всех шагов.
+
+**Статус:** `DIAGNOSTIC_FAILURE_CLASSIFICATION=SOURCE_COMMITTED`, `HOMESERVER_TEST=NOT_RUN`, `XRAY_RUNTIME_DETAILS=BLOCKED`, `STAGE3=IN_PROGRESS`, `RELEASE=NO`.
