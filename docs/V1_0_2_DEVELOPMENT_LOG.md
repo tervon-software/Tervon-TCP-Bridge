@@ -394,3 +394,22 @@ go vet ./...
 **Следующая проверка (только read-only):** прочитать mapping `host.docker.internal` внутри существующего контейнера и без изменения службы проверить TCP connect **из того же network namespace**, до реальных backend :30000 и :55636. Если контейнер не имеет Python/sh/curl, допускается использование `nsenter -t <ContainerInitPID> -n` с Python из host; запрет на пересборку образа, установку пакетов, изменённые Docker configs и включение/отключение VPN остаётся. Проверка TCP connect доказывает исключительно достижимость порта, а не корректность VPN, а отсутствие `host.docker.internal` в host `/etc/hosts` не равно отсутствию этого имени в контейнере. Результат фиксировать по каждой паре отдельно, не предполагать PASS.
 
 **Статусы:** `DOCKER_NETWORK_DISCOVERED=YES`, `BACKEND_ROUTES_READ=YES`, `VLESS_TCP_MISSING_ROUTE=YES`, `DOCKER_TO_XRAY_TCP_CONNECT=NOT_TESTED`, `ANDROID_INTERNET=NOT_PASS`, `STAGE3=IN_PROGRESS`, `RELEASE=NO`.
+
+## 2026-11-22 — Этап 3: успешная проверка backend TCP из network namespace Docker; уточнение обязательной API-маршрутизации
+
+**Источник:** вывод Homeserver от оператора по уже согласованной read-only команде `nsenter`. Runtime-измерение ограничено TCP connect, без отправки VPN-трафика.
+
+- `CONTAINER_PID=1756814` — init PID запущенного Android ingress Decapsulator на момент проверки.
+- В `/proc/1756814/root/etc/hosts` имя `host.docker.internal` разрешается в `172.17.0.1` (это отличается от Docker gateway `172.20.0.1`, но реально настроенный host alias TCP-доступен из данного namespace).
+- `SERVICE=vpn PORT=30000 TCP_CONNECT=YES`.
+- `SERVICE=vpn-xhttp PORT=55636 TCP_CONNECT=YES`.
+- `TCP_ONLY=YES`, `VPN_PROTOCOL_VERIFIED=NO`, `SSH_CONSOLE=OPEN`.
+- Из этого **НЕ** следует VPN dataplane PASS, подтверждение входящего протокола Xray, корректный mTLS от Android или интернет. Не приписывать текущему Docker динамический API sync: действующий образ `m6-runtime-acl` продолжает читать только статический `server.json`.
+
+**Повторное требование оператора:** процесс Decapsulator в Docker должен ориентироваться на актуальные порты inbound через API панели и автоматически знать актуальные маршруты, без ручной синхронизации `server.json`. Поддержка **двух** провайдеров — 3x-ui и Remnawave; порт пользовательского VPN и внешний HTTPS Bridge являются разными понятиями. Уже утверждённый v1.0.2 контракт: API provider → selected node active inbounds → verified applied Xray/listener & backend reachability → atomic `RuntimePolicy` ACL+Routes → generation ACK ядра → discovery publication только применённого поколения. При ошибке API/несовпадении не публиковать новые неподтверждённые маршруты; текущие открытые TCP sessions не рвать.
+
+**Техническая граница доверия:** процесс Docker обязан **использовать** актуальную маршрутизацию, но административные Bearer токены 3x-ui/Remnawave внутри Docker не обязательны и не должны переноситься без отдельной необходимости. Существующий root-owned серверный API adapter/registrar может получать API данные и передавать применяемый проверенный snapshot ядру через имеющийся механизм reload/ACK. Для v1.0.2 старый `DockerACLConfirmer` с `M6_ACL_RELOAD=PASS` не подтверждает route snapshot; требуется `M6_POLICY_RELOAD=PASS`/generation digest именно маршрутов и ACL.
+
+**Итог:** `DOCKER_BACKEND_CONNECT_30000=PASS`; `DOCKER_BACKEND_CONNECT_55636=PASS`; `VLESS_TCP_55535_ROUTE=ABSENT_CURRENT_RUNTIME`; `DYNAMIC_API_ROUTE_SYNC=NOT_IMPLEMENTED_ON_RUNNING_DOCKER`; `VPN_E2E=NOT_TESTED`; `STAGE3=IN_PROGRESS`; `V102_RELEASE=NO`. Команды не изменяли Docker, Xray, 3x-ui, Remnawave или Android.
+
+**Следующий согласованный участок этапа 3:** добиться передачи подтверждённой конфигурации из read-only adapter обоих провайдеров в `RuntimePolicy` кандидата v1.0.2, добавить отдельный route generation ACK и связать discovery с этим ACK; сначала изолированные тесты и документация, затем отдельное разрешение для замены работающего Docker. Без API токенов в Android, без hardcode backend портов.
