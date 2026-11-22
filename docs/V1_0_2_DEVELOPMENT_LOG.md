@@ -300,3 +300,20 @@ go vet ./...
 **Статус:** `NODE_RECHECK_SOURCE=COMMITTED`, `NODE_RECHECK_TESTS=COMMITTED`, `NEW_HEAD_TEST=NOT_RUN`, `STAGE3=IN_PROGRESS`, `RELEASE=NO`.
 
 **Следующий проверочный шаг:** на Homeserver при чистой `work/m6-android-ingress` выполнить `git pull --ff-only`; затем `go test -count=1 -run '^TestRemnawave' -v .`, `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...` с независимыми кодами завершения. Все действия в subshell; работающие службы не затрагивать.
+
+## 2026-11-22 — Этап 3: Homeserver PASS повторной проверки Remnawave Node
+
+**Источник:** полный вывод Homeserver от оператора; не CI. **Ветка:** `work/m6-android-ingress`. Успешный `git pull --ff-only origin work/m6-android-ingress` с `Fast-forward` `5b65aa1..da7f8e2`. **Точный тестируемый SOURCE_HEAD:** `da7f8e2141218fce407fb5b88ff97773686a019c`.
+
+**Результаты по программным проверкам:**
+- `go test -count=1 -v -run '^TestRemnawave' .`: `REMNAWAVE_RC=0`; PASS `TestRemnawaveSelectedNodeFiltersInactive`, `TestRemnawaveRejectsInconsistentNode` (disabled/unassigned/missing-selected-inbound/changed-port/malformed-profile), `TestRemnawaveDoesNotExposeAPISecret`, `TestRemnawaveRejectsNodeSelectionDriftBetweenGETs` (disabled/removed-inbound/changed-profile/changed-port).
+- `go test -count=1 ./...`: `TEST_RC=0`, все шесть пакетов Go-модуля `integrations/android-ingress/xui` — `ok`.
+- `go test -race -count=1 ./...`: `RACE_RC=0`, все шесть пакетов — `ok`.
+- `go vet ./...`: `VET_RC=0`, диагностических предупреждений нет.
+- Интерактивный сеанс остался доступен: `SSH_CONSOLE=OPEN`.
+
+**Вывод:** `REMNAWAVE_NODE_RECHECK_TEST=PASS`, `REMNAWAVE_NODE_RECHECK_RACE=PASS`, `REMNAWAVE_NODE_RECHECK_VET=PASS` **только на зафиксированном SHA**. Изоляционные HTTP mock-тесты не доказывают работу с реальной Remnawave панелью. Второе чтение Node сокращает риск TOCTOU, но не является атомарной транзакцией между двумя HTTP GET. Перезапусков и изменений работающих служб в команде нет; их состояние отдельно не обследовано.
+
+**Не завершено:** реальная интеграция Xray effective inbound, синхронизация политики ядра и подтверждение поколения, discovery, Android dataplane; `STAGE3=IN_PROGRESS`, `REMNAWAVE_LIVE_API=NOT_TESTED`, `CORE_ACK=NOT_IMPLEMENTED`, `ANDROID_E2E=NOT_PASS`, `V1.0.2_RELEASE=NO`.
+
+**Дальше внутри этапа 3:** проверка актуального фактически применённого Xray inbound перед публикацией маршрута. Сначала изучить существующий валидатор и способ чтения Xray config, не переписывать проверенные механизмы и не затрагивать сервисы.
