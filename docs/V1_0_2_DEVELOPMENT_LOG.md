@@ -351,3 +351,17 @@ go vet ./...
 **Точный смысл PASS:** парсер Xray JSON и тестовая связка с `ReconcileInbounds` работают в изолированном Go-модуле на указанном commit. **НЕТ** подтверждения, что текущий работающий Xray применил этот JSON или принимает TCP на любом определённом порту. **НЕТ** подключения к атомарной политике Decapsulator, подтверждения поколения от сервера, динамического discovery, live Remnawave API или успешного интернет-трафика Android. `XRAY_CONFIGURED_PARSER=PASS`, `XRAY_RUNTIME_ACTIVE=NOT_VERIFIED`, `STEP3_OVERALL=IN_PROGRESS`, `V1.0.2_RELEASE=NO`. Команда не содержала вмешательства в работающие службы; их актуальный runtime-статус этим испытанием отдельно не проверялся.
 
 **Следующий шаг:** ревизия имеющегося доверенного механизма проверки реально запущенного Xray и связки Core ACK → Discovery. Не объявлять файл JSON равнозначным процессному runtime, не повторять уже прошедшие Go-проверки без новой причины и не менять действующие службы.
+
+## 2026-11-22 — Этап 3: аудит доказательства live Xray и ACK перед публикацией
+
+**Исходный HEAD после записи результатов парсера:** `b31a86c7d237e00e3892c54ee10ad76885272a26`. Выполнена только GitHub-ревизия файлов (без записи исходников или изменения служб):
+- `integrations/android-ingress/check_live_xray_bridge_routes.py` и `test_check_live_xray_bridge_routes.py` — read-only сверка конфигурационных JSON и портов, не доказательство применённой Xray конфигурации;
+- `integrations/android-ingress/xui/acl_docker_confirm.go` — ныне работающий `DockerACLConfirmer` проверяет строго старый образ `tervon-bridge-android-ingress:m6-runtime-acl` + label `org.tervon.bridge.hot_acl=m6-v1`, выполняет Docker SIGHUP и ждёт лог `M6_ACL_RELOAD=PASS digest=...`; это **не** ACK route-generation v1.0.2, использовать напрямую нельзя;
+- `integrations/android-ingress/xui/cmd/m6-auto-registrar/main.go` — `tcp_routes` получаются при запуске из JSON, а не из применённого поколения ядра;
+- `integrations/android-ingress/xui/enrollment_http.go` — discovery отдаёт хранимую `TCPRoutes` без подтверждения поколения.
+
+**Вывод:** текущая последовательность `panel API → Xray JSON → policy overlay` не доказывает, что Xray применил конфигурацию и доступен для подключения из сетевого пространства Decapsulator. Имена localhost/host.docker.internal в тестах не подтверждают реальный сетевой путь. Не считать TCP connect без подтверждения протокола доказательством работоспособного VPN, однако это полезный отдельный проверяемый слой.
+
+**Неразрешённые входные данные:** каким способом на конкретной ноде подтверждается применённая Xray конфигурация (достоверный runtime API, источник применённого конфигурационного поколения или безопасная проверка фактических listener/process), и каким механизмом кандидат ядра v1.0.2 подтверждает уже применённое поколение перед отдачей discovery. Только сравнение с файлом и подтверждение старого `M6_ACL_RELOAD` недостаточны.
+
+**Статусы:** `LIVE_XRAY_PROOF=BLOCKED_PENDING_READ_ONLY_EVIDENCE`; `V102_ROUTE_ACK=NOT_IMPLEMENTED`; `DISCOVERY_ACK_SYNC=NOT_IMPLEMENTED`; `STAGE3=IN_PROGRESS`. До получения данных новые исходники для live-публикации не создавать и действующий Docker не менять. Следующий точечный read-only шаг — посмотреть фактические командные строки Xray/связанный конфиг и открытые TCP-listener, без вывода ключей или содержимого конфигов, без повторных Go-тестов. После этого подготовить согласованную схему runtime-валидатора.
