@@ -125,6 +125,8 @@ def main():
                 continue
             desired=reference.get(tag)
             state="NOT_IN_CONFIG"
+            if desired is None:
+                missing+=1
             if desired is not None:
                 compared+=1
                 cfgnet=(desired.get("streamSettings") or {}).get("network") or "tcp"
