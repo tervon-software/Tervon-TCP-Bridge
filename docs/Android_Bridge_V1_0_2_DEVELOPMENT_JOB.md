@@ -73,3 +73,8 @@
 - **Ожидаемое:** согласованность release sha, image digest, Compose effective, HTTP2/mTLS/framing route & ACL source; отдельная оговорка отсутствия нового device E2E.
 - **Фактически:** Release опубликован `07:53:17Z`, Linux asset SHA `aea59080...` совпадает с Docker-журналом; `runtime_policy.go` подтверждает одну atomic generation; release v1.0.1 source подтверждает `POST /v2/stream`, H2 TLS 1.3 + mTLS, service header, wire framing, padding/jitter. Docker operator `COMPOSE_PERSISTENCE=PASS` с host 18443 -> container 8443. Legacy `TCPRoutes` и `configuredTCPRoutes` всё ещё находятся в GitHub source; пользователь запрещает их возвращение в Android.
 - **Статус:** `PASS_READ_ONLY_SOURCE_EVIDENCE`; `PASS_RECORDED_SERVER_DEPLOYMENT`; `BLOCKED_CURRENT_SERVICE_BINDING_INTERFACE` пока не подтверждён точный live registrar discovery; `ANDROID_COMPILE=NOT_RUN`; `ANDROID_E2E=NOT_RUN`. Никакие службы или конфигурации не менялись.
+
+### JOB-003 — Уточнение времени записи свидетельств
+- `LOG_COMMIT=0ff4a09647029dbfdd9f7a14650d77f2621a5d75`, GitHub `created_at=2026-11-22T11:15:48Z` (Новосибирск 18:15:48).
+- `JOB_COMMIT=d3981c3e4ff7fee335fbdcdd727c237b72a24e02`, GitHub `created_at=2026-11-22T11:15:51Z` (Новосибирск 18:15:51).
+- Изменены только журналы; Android tests `NOT_RUN`, services `UNCHANGED`.
