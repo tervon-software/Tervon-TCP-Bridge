@@ -1,6 +1,6 @@
 # M6 — Android-facing Tervon TCP Bridge: текущее состояние
 
-**Актуально на 2026-11-22.** Этот README описывает только текущий серверный integration scope и **не является командой на развёртывание**. Единственный рабочий план: [docs/DEVELOPMENT_PLAN.md](../../docs/DEVELOPMENT_PLAN.md); конкретный аудит: [docs/M6_AUDIT_2026-11-22.md](../../docs/M6_AUDIT_2026-11-22.md).
+**Актуально на 2026-11-22.** Этот README описывает только текущий серверный integration scope и **не является командой на развёртывание**. Единственный рабочий план: [docs/DEVELOPMENT_PLAN.md](../../docs/DEVELOPMENT_PLAN.md); конкретный аудит: [docs/M6_AUDIT_2026-11-22.md](M6_AUDIT_2026-11-22.md).
 
 ## Назначение
 

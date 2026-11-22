@@ -2,7 +2,7 @@
 
 **Защищённый TCP-мост между серверами через HTTPS/2**
 
-**Linux v1.0.1:** [Скачать выпуск](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.1) · [Установка на Linux](docs/INSTALL-v1.0.1.ru.md) · [Что нового](docs/RELEASE_NOTES_v1.0.1.ru.md).
+**Linux v1.0.1:** [Скачать выпуск](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.1) · [Установка на Linux](docs/Server/INSTALL-v1.0.1.ru.md) · [Что нового](docs/Server/RELEASE_NOTES_v1.0.1.ru.md).
 
 Tervon TCP Bridge соединяет два удалённых участка TCP-сети через один защищённый канал. Он принимает обычное TCP-подключение на одной машине, переносит его данные по HTTP/2 поверх TLS 1.3 и передаёт их назначенному сервису на другой машине.
 
@@ -157,7 +157,7 @@ git checkout --detach v1.0.1
 
 ### Установка на два новых сервера
 
-Подробное руководство: **[Установка Tervon TCP Bridge v1.0.1](docs/INSTALL-v1.0.1.ru.md)**. Установщик проверяет точный SHA релизного бинарника, создаёт файлы и образцы JSON, но **не запускает сервис автоматически**. Настройка собственной PKI (TLS 1.3/mTLS) и разрешённых маршрутов обязательна; не публикуйте закрытые ключи.
+Подробное руководство: **[Установка Tervon TCP Bridge v1.0.1](docs/Server/INSTALL-v1.0.1.ru.md)**. Установщик проверяет точный SHA релизного бинарника, создаёт файлы и образцы JSON, но **не запускает сервис автоматически**. Настройка собственной PKI (TLS 1.3/mTLS) и разрешённых маршрутов обязательна; не публикуйте закрытые ключи.
 
 ```bash
 # На сервере с локальными TCP-подключениями
@@ -171,10 +171,10 @@ sudo bash install/install-bridge.sh install server
 
 ### Документация для пользователей
 
-- [Установка v1.0.1 и первоначальная настройка](docs/INSTALL-v1.0.1.ru.md)
-- [Параметры конфигурации и интеграция с Xray](docs/CONFIGURATION.ru.md)
-- [Диагностика и типовые ошибки](docs/TROUBLESHOOTING.ru.md)
-- [Заметки к выпуску v1.0.1](docs/RELEASE_NOTES_v1.0.1.ru.md)
+- [Установка v1.0.1 и первоначальная настройка](docs/Server/INSTALL-v1.0.1.ru.md)
+- [Параметры конфигурации и интеграция с Xray](docs/Server/CONFIGURATION.ru.md)
+- [Диагностика и типовые ошибки](docs/Server/TROUBLESHOOTING.ru.md)
+- [Заметки к выпуску v1.0.1](docs/Server/RELEASE_NOTES_v1.0.1.ru.md)
 - [Пример client JSON](examples/client.json) и [пример server JSON](examples/server.json)
 
 ## Исходный код и условия использования
