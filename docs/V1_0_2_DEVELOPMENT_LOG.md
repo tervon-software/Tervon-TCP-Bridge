@@ -451,3 +451,17 @@ go vet ./...
 **Ограничения:** реальный проверяющий Docker route ACK ещё не подключён, `ConfirmedRouteStore` не доказывает самостоятельно связь предоставленного digest с запущенным ядром и не синхронизирует его с фактическим Xray. Смена маршрутов в активном контейнере не выполнялась. `REAL_CORE_ACK=NOT_IMPLEMENTED`; `LIVE_DISCOVERY_SYNC=NOT_CONNECTED`; `XRAY_PROTOCOL_E2E=NOT_VERIFIED`; `ANDROID_INTERNET=NOT_PASS`; `STEP3_OVERALL=IN_PROGRESS`; `RELEASE_V1_0_2=NO`.
 
 **Следующий участок этапа 3:** ревизия существующих digest и Docker ACK контрактов, затем минимальное внедрение доверенного подтверждения поколения реального кандидата ядра в контроллер на изолированном стенде. Перед публикацией verify policy bytes/digest и последствия ошибки подтверждения; не менять действующие Docker, Xray, 3x-ui, Remnawave или Android без отдельного согласования.
+
+## 2026-11-22 — Этап 3: digest ACL + routes для будущего реального ACK
+
+**HEAD перед работой:** `ea807fa0d393880699dd36fca09b65c91600abad` на `work/m6-android-ingress`. Прочитаны `runtime-routes/apply-to-acl-source.py`, `runtime-routes/policy.go`, `xui/acl_docker_confirm.go`, `xui/acl_docker_confirm_test.go`, `xui/confirmed_routes.go`, `prototype/bridge.go`, `prototype/cmd/bridge/main.go`.
+
+**Доказанный контракт по исходникам:** кандидат Bridge v1.0.2 после успешного RuntimePolicy.Replace сериализует JSON объекта с полями в порядке routes, authorized; вложенные backend имеют экспортируемые Go поля Name и Address; затем вычисляет SHA-256 и выдаёт M6_POLICY_RELOAD=PASS digest=<hex>. Старый DockerACLConfirmer знает только M6_ACL_RELOAD и старый образ, его ACK не подтверждает изменение routes.
+
+**Новые исходники:**
+- `integrations/android-ingress/xui/policy_generation.go`, commit `ad7c5a7da31c3010cf5850833144f6c6b7e187d4`: PolicyGenerationDigest формирует SHA-256 того же сериализованного объекта routes + authorized, проверяет service/port/backend, требует непустые ACL и routes.
+- `integrations/android-ingress/xui/policy_generation_test.go`, commit `aa2010f048d388def321e56d4dff7568c479df93`: тест независимой Go JSON сериализации структуры эквивалентного bridge.Backend, детерминизма и изменения digest при смене маршрута; негативные проверки.
+
+**Ограничения:** текущий код формирует только ожидаемый digest; он не доказывает ACK ядра, корректность live Xray, применённую конфигурацию или достижимость VPN. В рабочем Docker действует старый образ m6-runtime-acl. Имя нового Docker image, labels и порядок cutover не менялись. Реального Docker confirmation нет, API→core→discovery ещё не подключён.
+
+**Статусы:** POLICY_DIGEST_SOURCE=COMMITTED, POLICY_DIGEST_TEST=PENDING, REAL_CORE_ACK=NOT_CONNECTED, LIVE_XRAY_PROOF=NOT_COMPLETE, STAGE3=IN_PROGRESS, V102_RELEASE=NO. Следующая проверка на Homeserver: go test -count=1 -run '^TestPolicyGenerationDigest' -v ., go test -count=1 ./..., go test -race -count=1 ./..., go vet ./... на новом точном HEAD. Без PASS дальше не переходить; сервисы не затрагивать.
