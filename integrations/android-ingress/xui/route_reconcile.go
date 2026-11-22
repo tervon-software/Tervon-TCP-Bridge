@@ -37,7 +37,56 @@ type VerifiedRoute struct {
  Address string
 }
 
-var routeServicePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+var routeServicePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}package xui
+
+import (
+ "errors"
+ "fmt"
+ "net"
+ "regexp"
+ "strconv"
+ "strings"
+)
+
+// PanelInbound is a provider-neutral, redacted inbound projection.
+// For Remnawave the provider adapter MUST filter by the selected node's
+// assigned profile and active inbounds before calling ReconcileInbounds.
+type PanelInbound struct {
+ Port int
+ Protocol string
+ Network string
+ Enabled bool
+}
+
+// EffectiveInbound describes the effective node-local Xray listener.
+// It is independent of panel state and cannot be supplied by Android.
+type EffectiveInbound struct {
+ Port int
+ Protocol string
+ Network string
+ Service string // server-selected opaque Bridge service identifier
+ Address string // verified backend address, not a client-provided target
+}
+
+// VerifiedRoute can be published only AFTER the exact route+ACL generation
+// has been acknowledged by the running Decapsulator.
+type VerifiedRoute struct {
+ Port int
+ Service string
+ Address string
+}
+
+)
+
+// canonicalInboundNetwork recognizes only the two verified Xray aliases.
+// Unknown networks remain unchanged and cannot become a supported TCP route.
+func canonicalInboundNetwork(network string) string {
+ switch strings.ToLower(network) {
+ case "splithttp": return "xhttp"
+ case "raw": return "tcp"
+ default: return strings.ToLower(network)
+ }
+}
 
 // ReconcileInbounds matches a provider-selected set with the effective Xray
 // listeners. It does NOT publish routes, mutate ACL or assume panel == Xray.
@@ -73,7 +122,7 @@ func ReconcileInbounds(panel []PanelInbound, effective []EffectiveInbound) ([]Ve
  for _, x := range effective {
   p,ok:=active[x.Port]
   if !ok {continue}
-  if !strings.EqualFold(p.Protocol,x.Protocol) || !strings.EqualFold(p.Network,x.Network) {
+  if !strings.EqualFold(p.Protocol,x.Protocol) || canonicalInboundNetwork(p.Network)!=canonicalInboundNetwork(x.Network) {
    continue
   }
   switch strings.ToLower(x.Network) {
