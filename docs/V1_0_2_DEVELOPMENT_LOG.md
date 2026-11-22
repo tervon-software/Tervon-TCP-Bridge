@@ -570,3 +570,15 @@ go vet ./...
 **Статусы:** `ROUTE_SYNC_SOURCE=COMMITTED`, `ROUTE_SYNC_HOMESERVER_TEST=PENDING`, `XRAY_APPLIED_EVIDENCE=NOT_IMPLEMENTED`, `DOCKER_APPLY_SYNC=NOT_CONNECTED`, `LIVE_DISCOVERY=NOT_CONNECTED`, `STAGE3=IN_PROGRESS`, `RELEASE=NO`.
 
 **Следующий checkpoint:** `go test -count=1 -v -run '^TestSyncVerifiedRoutes' .`, `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...` на точном следующем HEAD. Не изменять работающие службы и не переходить к следующему подшагу при FAIL.
+
+## 2026-11-22 — Этап 3: Homeserver PASS изолированной Route Sync цепочки
+
+**Доказательство:** полный терминальный вывод оператора. Успешный `git pull --ff-only origin work/m6-android-ingress`, `Fast-forward 0e7a80b..b08814a`. **Точный испытанный GitHub SOURCE_HEAD:** `b08814afdba06f979ab3df774cb4a07e59c00508`, ветка `work/m6-android-ingress`, Go-модуль `integrations/android-ingress/xui`.
+
+**Результаты проверок:** `go test -count=1 -v -run '^TestSyncVerifiedRoutes' .`: PASS `TestSyncVerifiedRoutesRequiresAppliedXrayAndCoreACK`, PASS `TestSyncVerifiedRoutesFailClosedWhenAPIOrACKFails`; `SYNC_RC=0`. Полный `go test -count=1 ./...`: 6 пакетов `ok`, `TEST_RC=0`. `go test -race -count=1 ./...`: 6 пакетов `ok`, `RACE_RC=0`. `go vet ./...`: без предупреждений, `VET_RC=0`. `RUNNING_SERVICES=UNCHANGED`, `SSH_CONSOLE=OPEN`.
+
+**Подтверждённое:** `ROUTE_SYNC_CALLBACK_UNIT_TEST=PASS`, `ROUTE_SYNC_FAIL_CLOSED_TEST=PASS`, `XUI_MODULE_GO_TEST=PASS`, `XUI_MODULE_RACE=PASS`, `XUI_MODULE_VET=PASS` **только для указанного HEAD**. Тесты доказали согласование выбранных panel inbound с переданным в mock действующим Xray snapshot, построение ожидаемого full policy digest, публикацию только после успешного test callback ACK, закрытие discovery при неполном Xray и сбоях API/ACK. 
+
+**Не доказано и не реализовано:** источник `AppliedXrayEvidence` настоящего запущенного Xray отсутствует (тест передаёт доверенный mock); provider API → Docker apply/ACK не подключён в реально работающем registrar; автоматический polling не включён; Xray live dataplane / Android E2E не испытаны. Нельзя интерпретировать unit-test PASS как реальное API или Docker подтверждение. `XRAY_RUNTIME_PROOF=NOT_IMPLEMENTED`, `REAL_DOCKER_POLICY_CONFIRM=NOT_TESTED`, `LIVE_DISCOVERY_SYNC=NOT_CONNECTED`, `ANDROID_INTERNET=NOT_PASS`, `STEP3_OVERALL=IN_PROGRESS`, `RELEASE_V1_0_2=NO`.
+
+**Следующий согласованный участок этапа 3:** исследование действующего способа применения Xray конфигурации и проверяемого runtime свидетельства, не доверяя одному panel/API JSON. До такого свидетельства не публиковать обновлённые маршруты. Действующие службы не затрагивать.
