@@ -243,3 +243,26 @@
 - Запись 012: `5924b007c5cce1f8840be48ece9155c1fa1b216a`, GitHub `created_at=2026-11-22 11:56:59 UTC` = **18:56:59 Новосибирск**.
 - JOB-008: `68b2689ec7880229fdbb3b1b1c339c12357b944e`, GitHub `created_at=2026-11-22 11:57:14 UTC` = **18:57:14 Новосибирск**.
 - Это время документальных коммитов, а не точное время исполнения локального Python. Приложение, Docker, сервер и бинарник не изменены.
+
+### Запись 014 — Новое решение оператора: минимальный ремонт или выборочная замена вместо автоматического переписывания
+
+- **Решение оператора:** «Если можно обойтись простым изменением кода этих файлов, то можно исправить их. Если нет, переписать полностью». Это разрешает **выборочную минимальную коррекцию** в пределах семи утверждённых файлов и полную замену только необходимого механизма, не реабилитирует старые запрещённые методы, не меняет сервер, Go ELF, APK, подпись, рабочие службы. Область M6 не расширять без нового решения.
+- **Текущий исходный GitHub HEAD:** `a73ba6085cb71d08b99472b3bd8368921ae727c8` в `work/m6-android-ingress`.
+- **Новый приватный архив от оператора:** `android-bridge-v102-dependencies.tar.gz`, SHA256 `ce9f0403b8e7605477d2088b8a1a40766ba0a55d8710f1a50c5a00da4bf3ff77`; 27 regular Kotlin files, прочитаны только локально, не выгружать в публичный GitHub. 10 файлов пересекаются с первым архивом, **SHA совпали 10/10**, расхождений нет.
+- **Подтверждённые текущие API:**
+  - `BridgeVpnSession.prepare(context,direct):String`, `stop(context)`, `active():Boolean`, `lastFailureCode()` — внешний контракт `VpnForegroundService` и состояния Flutter.
+  - `BridgeControlChannel.register(messenger,context)` — entry point `MainActivity`.
+  - `BridgeRuntimeControl.launchClient/stopClient/coreState/onUnexpectedExit` — существующий внутренний владелец процесса; старый `register` создаёт второй `MethodChannel com.tervonvpndpi/bridge_runtime` с прямыми `installClientConfig/start/stop` в обход `BridgeVpnSession`.
+  - `BridgeCoreManager` читает process stdout/stderr, выделяет безопасный `M6_BRIDGE_SESSION_ERROR=` marker; `BridgeConfigManager` использует `nativeLibraryDir/libtervonbridge.so`, `-config`, app-private JSON; наличие подтверждённого Go ARM64 SHA сохранять.
+  - `BridgeControlChannel` уже управляет enrollment через `BridgeAutoCertificateEnrollment`, `BridgeAutoEnrollmentHttp`, `BridgeDeviceIdentity` и хранилище сертификатов; эти классы **существуют** и не требуют переписывания ради замены маршрута.
+- **Минимальная ремонтопригодность семи файлов (предварительная матрица решения, без изменения кода):**
+  1. `BridgeVlessRoutePlan.kt` — **заменить старый алгоритм на уже протестированный чистый decision**, сохраняя необходимые сигнатуры call-sites по итоговому согласованию; не дублировать реализацию.
+  2. `BridgeControlChannel.kt` — **точечно убрать регистрацию второго управляющего runtime канала**, сохранить действующие `bridge_control` commands и cert enrollment. Перед отключением `bridge_runtime` проверить фактических Dart consumers, которые НЕ входят в архив. Не удалять использующиеся API слепо.
+  3. `BridgeRuntimeControl.kt` — **точечно убрать независимые install/start/stop извне**, сохранить внутренний процессный lifecycle и diagnostics. Точное удаление зависит от Dart consumers.
+  4. `BridgeCoreManager.kt` — **сохранить** отдельный output drain/exit watcher/diagnostic ring; исправлять только установленный конкретный дефект по тесту. Полная замена не нужна.
+  5. `BridgeConfigManager.kt` — **сохранить** защищённые app-private пути, ELF и атомарную запись config; исправлять по результату точного source/Gradle теста, полной замены пока не нужно.
+  6. `BridgeXrayConfigRoute.kt` — **точечно корректировать** преобразование Xray JSON после проверки на реальные VLESS TCP, XHTTP, Trojan fixtures; не менять внутренние VPN параметры.
+  7. `BridgeVpnSession.kt` — **сосредоточенная замена логики service selection**, удаление `params.tcpRoutes[selected.port]`, согласование реального server Discovery, корректная диагностика первых отказов, защита прямого fallback; сохранить внешний API `prepare/stop/active`. Именно этот файл потенциально потребует самой большой замены.
+- **Существенная граница, нельзя решать предположением:** `BridgeAutoEnrollmentHttp.kt:33-41,108-139` (вне утверждённой семёрки) **парсит legacy `tcp_routes`**. Серверный `xui/enrollment_http.go` и `cmd/m6-auto-registrar/main.go` также сохраняют legacy `TCPRoutes`, хотя утверждённый новый контракт его исключил. Простая замена `params.tcpRoutes[selected.port]` на `params.service` даст **один серверный service для всех разных inbound** и может направить трафик не туда. Нельзя править восьмой Android файл или сервер без нового согласования области; прежде проверить **действующий** discovery и какой service он возвращает выбранному профилю.
+- **Не получено:** текущий `git status --short` TervonVPN при `tracked_dirty=true`; действующие Dart consumers каналов, ответ живого Discovery; Go->server authenticated E2E trace. Архив не содержит Dart; не утверждать compile PASS по статическому Kotlin review.
+- **Статус:** `SECOND_ARCHIVE_VERIFIED`, `OVERLAP_SHA=PASS_10_OF_10`, `MINIMAL_REPAIR_MATRIX=PROPOSED`, `CLIENT_SERVER_SERVICE_BINDING=BLOCKED_BY_UNVERIFIED_CONTRACT`, `APP_SOURCE_MODIFICATION=NOT_RUN`, `ANDROID_DEVICE_E2E=NOT_RUN`. Действующий сервер и приложение не изменялись.
