@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """Read-only Xray gRPC runtime projection. Never print raw gRPC or credentials."""
-import base64
-import binascii
 import json
 import os
 import re
@@ -12,69 +10,13 @@ from pathlib import Path
 KNOWN_PID = 1253673  # Previously verified Homeserver process, identity guarded.
 TCP = {"tcp","raw","ws","grpc","httpupgrade","http","h2","xhttp","splithttp"}
 
-def wire_fields(data):
-    if len(data) > 1048576:
-        raise ValueError("oversize protobuf")
-    i = 0
-    out = {}
-    def varint():
-        nonlocal i
-        n = 0
-        for shift in range(0,70,7):
-            if i >= len(data):
-                raise ValueError("truncated protobuf")
-            b = data[i]
-            i += 1
-            n |= (b & 127) << shift
-            if b < 128:
-                return n
-        raise ValueError("invalid varint")
-    while i < len(data):
-        key = varint()
-        field, kind = key >> 3, key & 7
-        if not field:
-            raise ValueError("zero field")
-        if kind == 0:
-            val = varint()
-        elif kind == 2:
-            length = varint()
-            if length > len(data) - i:
-                raise ValueError("truncated value")
-            val = data[i:i+length]
-            i += length
-        elif kind in (1,5):
-            length = 8 if kind == 1 else 4
-            if length > len(data) - i:
-                raise ValueError("truncated fixed")
-            val = data[i:i+length]
-            i += length
-        else:
-            raise ValueError("invalid wire type")
-        out.setdefault(field,[]).append((kind,val))
-    return out
-
-def one(fields, number, kind, required=True):
-    values = fields.get(number,[])
-    if not required and not values:
-        return None
-    if len(values) != 1 or values[0][0] != kind:
-        raise ValueError("ambiguous protobuf field")
-    return values[0][1]
-
-def typed(obj, expected=None):
-    if not isinstance(obj,dict):
-        raise ValueError("typed message absent")
-    typ, value = obj.get("type"),obj.get("value")
-    if not isinstance(typ,str) or not isinstance(value,str):
-        raise ValueError("invalid typed message")
-    if expected and typ != expected:
-        raise ValueError("unrecognized receiver type")
-    try:
-        return typ,base64.b64decode(value,validate=True)
-    except (ValueError,binascii.Error):
-        raise ValueError("invalid base64") from None
-
 def extract(inbounds):
+    """Parse the *actual* xray api lsi custom MarshalToJson output.
+
+    Xray's common/reflect/marshal.go expands TypedMessage into a decoded
+    object with _TypedMessage_ and renders a singleton PortList as an int.
+    It does NOT emit protobuf type/value base64 as protojson would.
+    """
     if not isinstance(inbounds,list) or not 1 <= len(inbounds) <= 4096:
         raise ValueError("invalid inbound count")
     seen=set()
@@ -89,26 +31,28 @@ def extract(inbounds):
         if tag=="api":
             result.append((tag,0,"internal","internal"))
             continue
-        _,receiver_bytes=typed(item.get("receiverSettings"),"xray.app.proxyman.ReceiverConfig")
-        proxy_type,_=typed(item.get("proxySettings"))
-        receiver=wire_fields(receiver_bytes)
-        port_list=wire_fields(one(receiver,1,2))
-        ranges=port_list.get(1,[])
-        if len(ranges)!=1 or ranges[0][0]!=2:
-            raise ValueError("port range missing or ambiguous")
-        port_range=wire_fields(ranges[0][1])
-        port=one(port_range,1,0)
-        port_to=one(port_range,2,0,False)
-        if port_to is None: port_to=port
-        if not 1<=port<=65535 or port_to!=port:
-            raise ValueError("port must be singleton")
-        stream_data=one(receiver,3,2,False)
-        network="tcp"
-        if stream_data is not None:
-            stream=wire_fields(stream_data)
-            encoded=one(stream,5,2,False)
-            if encoded:
-                network=encoded.decode("ascii").lower()
+        recv=item.get("receiverSettings")
+        if not isinstance(recv,dict) or recv.get("_TypedMessage_")!="xray.app.proxyman.ReceiverConfig":
+            raise ValueError("receiver typed schema mismatch")
+        port=recv.get("portList")
+        if type(port) is not int or not 1<=port<=65535:
+            raise ValueError("port is missing, ranged or invalid")
+        stream=recv.get("streamSettings")
+        if stream is None:
+            network="tcp"
+        elif isinstance(stream,dict):
+            network=stream.get("protocolName") or "tcp"
+            if not isinstance(network,str):
+                raise ValueError("invalid network type")
+            network=network.lower()
+        else:
+            raise ValueError("invalid stream settings")
+        proxy=item.get("proxySettings")
+        if not isinstance(proxy,dict):
+            raise ValueError("proxy typed schema missing")
+        proxy_type=proxy.get("_TypedMessage_")
+        if not isinstance(proxy_type,str):
+            raise ValueError("proxy type missing")
         m=re.fullmatch(r"xray\.proxy\.([a-z0-9_]+)\.inbound\.Config",proxy_type)
         protocol=m.group(1) if m else "unknown"
         result.append((tag,port,protocol,network))
