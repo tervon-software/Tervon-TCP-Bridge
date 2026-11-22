@@ -380,3 +380,17 @@ go vet ./...
 **Вывод и границы:** `XRAY_LISTENER_PRESENT=YES` для трёх портов; `XRAY_PROTOCOL_APPLIED=NOT_CONFIRMED_BY_SS`; `DOCKER_TO_XRAY_BACKEND_REACHABLE=NOT_TESTED`; `VPN_DATA_TRANSFER=NOT_TESTED`; `V102_ROUTING_ACK=NOT_IMPLEMENTED`. Исходная жалоба на отсутствие интернета/ошибку VLESS TCP остаётся открытой. Отсутствие точного `pgrep -x xray` объясняет отсутствие информации в блоках PID/exe, а не отсутствие работающего Xray.
 
 **Следующее действие (только read-only):** установить фактическую сеть существующего Bridge Docker и текущие backend endpoints **из разрешённых маршрутов Bridge**, затем отдельно оценить TCP-доступность backend без смены Docker/Xray/X-ui/Android. Не выводить полный `server.json`, ключи, токены или конфиги Xray. Текущий PID и порты — snapshot, не hardcode для программного компонента. `STEP3=IN_PROGRESS`, `RELEASE=NO`.
+
+## 2026-11-22 — Этап 3: read-only проверка реальных Docker backend routes и network namespace
+
+**Источник:** точный терминальный вывод Homeserver, присланный оператором после ранее документированного `XRAY_LISTENER_PRESENT=YES` (TCP :55535/:55636/:30000).
+
+- Прочитан действующий `/etc/tervon/bridge-android/config/server.json` без вывода секретов: `MODE=server`, `SERVICE=vpn BACKEND=host.docker.internal:30000`, `SERVICE=vpn-xhttp BACKEND=host.docker.internal:55636`. Эти номера взяты из действующих конфигураций, **не** hardcode исходников.
+- `docker inspect` действующего `android-ingress-android-bridge-decapsulator-1`: `NETWORK_MODE=android-ingress_default`, `NETWORK=android-ingress_default`, `IP=172.20.0.2`, `GATEWAY=172.20.0.1`. Результат не устанавливает, в какой IP адрес разрешается `host.docker.internal` **из сетевого пространства контейнера**; DNS/hosts и TCP reachability ещё не подтверждены.
+- `ps -p 1253673 -o pid,ppid,comm,stat`: `PID=1253673 PPID=2091 COMM=xray-linux-amd6 STAT=Sl`, подтверждён ребёнок x-ui (MainPID 2091, ранее считан через systemd).
+- Ранее наблюдавшийся VLESS TCP :55535 слушает Xray, но **не опубликован** в двух действующих backend маршрутах Bridge: `XRAY_TCP_LISTENER=YES`, `BRIDGE_ROUTE_FOR_55535=NO`. Это объясняет отсутствие разрешённого mapping для локальной активации Bridge VLESS TCP, **но не доказывает** причину потери интернета на XHTTP/Trojan.
+- `SSH_CONSOLE=OPEN`. Команда не изменяла службы и не требовала доступа к содержимому Xray secrets.
+
+**Следующая проверка (только read-only):** прочитать mapping `host.docker.internal` внутри существующего контейнера и без изменения службы проверить TCP connect **из того же network namespace**, до реальных backend :30000 и :55636. Если контейнер не имеет Python/sh/curl, допускается использование `nsenter -t <ContainerInitPID> -n` с Python из host; запрет на пересборку образа, установку пакетов, изменённые Docker configs и включение/отключение VPN остаётся. Проверка TCP connect доказывает исключительно достижимость порта, а не корректность VPN, а отсутствие `host.docker.internal` в host `/etc/hosts` не равно отсутствию этого имени в контейнере. Результат фиксировать по каждой паре отдельно, не предполагать PASS.
+
+**Статусы:** `DOCKER_NETWORK_DISCOVERED=YES`, `BACKEND_ROUTES_READ=YES`, `VLESS_TCP_MISSING_ROUTE=YES`, `DOCKER_TO_XRAY_TCP_CONNECT=NOT_TESTED`, `ANDROID_INTERNET=NOT_PASS`, `STAGE3=IN_PROGRESS`, `RELEASE=NO`.
