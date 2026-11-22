@@ -26,7 +26,8 @@ type BridgeEnrollmentHTTP struct {
     RemoteURL string
     ServerName string
     Service string
-    TCPRoutes map[string]string // decimal backend port -> operator-authorized service
+    TCPRoutes map[string]string // legacy M6 static routes
+    ConfirmedRoutes *ConfirmedRouteStore // opt-in v1.0.2; never mix with legacy static routes
     ClientCAPEM []byte
     ServerCAPEM []byte // existing public server trust root for Android Bridge TLS
     ClientCAKey crypto.Signer
@@ -40,6 +41,7 @@ type bridgeDiscoveryResponse struct {
     ServerName string `json:"server_name,omitempty"`
     Service string `json:"service,omitempty"`
     TCPRoutes map[string]string `json:"tcp_routes,omitempty"`
+    PolicyGeneration string `json:"policy_generation,omitempty"`
     ClientCA string `json:"client_ca,omitempty"`
     ServerCA string `json:"server_ca,omitempty"`
 }
@@ -82,11 +84,21 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
                 http.Error(w, "unsupported query", http.StatusBadRequest)
                 return
             }
+            routes := h.TCPRoutes
+            generation := ""
+            if h.ConfirmedRoutes != nil {
+                var ready bool
+                routes, generation, ready = h.ConfirmedRoutes.Snapshot()
+                if !ready {
+                    http.Error(w, "Bridge routes not confirmed", http.StatusServiceUnavailable)
+                    return
+                }
+            }
             w.Header().Set("Content-Type", "application/json")
             _ = json.NewEncoder(w).Encode(bridgeDiscoveryResponse{
                 Available:true, RemoteURL:h.RemoteURL,
                 ServerName:h.ServerName,Service:h.Service,
-                TCPRoutes:h.TCPRoutes,
+                TCPRoutes:routes, PolicyGeneration:generation,
                 ClientCA:string(h.ClientCAPEM), ServerCA:string(h.ServerCAPEM),
             })
         case http.MethodPost:
