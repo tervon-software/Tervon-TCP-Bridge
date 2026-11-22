@@ -104,3 +104,21 @@ go vet ./...
 - `M6_POLICY_RELOAD=PASS` — формат будущего подтверждения ядра; не заявлен как уже полученный.
 
 **Проверка на Homeserver (ещё не выполнена):** создать новую отдельную worktree на точном `96c1367...`, применить ACL overlay, затем candidate routes overlay, выполнить `gofmt`, `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...`, `go build ./cmd/bridge` с результатом build без изменений действующего бинарника. При сбое остановиться и исправить текущий этап; без PASS не переходить к следующему.
+
+## 2026-11-22 — Шаг 2: результат первого прогона Homeserver и исправление тестового комплекта
+
+**Операторская проверка на Homeserver:** checkout `/opt/tervon-tcp-bridge-m6-android-ingress`, `work/m6-android-ingress`, `SOURCE_HEAD=96eab1466b4d88e7a84d048a62e29fb62c41fc60`. Отдельная release worktree `/opt/tervon/Developed/v102-route-validation` на `96c136702d10b6fb9a16aa2893f6b978e8b14e86`; оба overlay выполнили `--check` и `--apply` без ошибок.
+
+**Обнаруженный дефект тестового пакета:** `gofmt` сообщил `stat policy_stream_test.go: no such file or directory`; файл `integrations/android-ingress/runtime-routes/policy_stream_test.go` существовал в GitHub, но отсутствовал в `EXTRA` установщика `apply-to-acl-source.py`. Тест `TestV102ExistingStreamKeepsBackendAfterAtomicRouteSwap` **не вошёл** в запущенный Go test. Это **FAIL полноты проверки**, а не ошибка компиляции действующего кандидата.
+
+**Результаты первого прогона (точный `SOURCE_HEAD=96eab146...`):**
+- `go test -count=1 ./...`: `TEST_RC=0`; шесть Go packages PASS, но без `policy_stream_test.go`.
+- `go test -race -count=1 ./...`: `RACE_RC=0`; шесть Go packages PASS, но без `policy_stream_test.go`.
+- `go vet ./...`: `VET_RC=0`.
+- `go build -o /opt/tervon/Developed/v102-route-validation/bridge-v102.candidate ./cmd/bridge`: `BUILD_RC=0`.
+- Само `gofmt` завершилось ошибкой: её не остановила `set -uo pipefail` (без `set -e`). Поэтому **общий Step 2 PASS не присваивается**, даже при нулевых кодах остальных команд.
+- Вывод пользователя: `LIVE_DOCKER_CHANGED=NO`, `LIVE_XRAY_CHANGED=NO`, `ANDROID_CHANGED=NO`. Фактическое состояние служб заново этим прогоном не исследовалось.
+
+**Исправление:** в `integrations/android-ingress/runtime-routes/apply-to-acl-source.py` список `EXTRA` расширен ровно на `policy_stream_test.go`. Commit исходника `2828b8fe12a0bb5b309ff24526ebec61c80eea1f`. Иных изменений кода, transport, ACL, API, Docker или Android нет.
+
+**Следующее контрольное испытание:** использовать уже созданную изолированную `/opt/tervon/Developed/v102-route-validation`, которая содержит ранее staged Go v1.0.2. Проверить совпадение исходных `policy.go` и `policy_test.go` с GitHub, отсутствие `policy_stream_test.go` и перенос **только** недостающего тестового файла из текущего checkout GitHub в изолированное `prototype/`. Запустить `gofmt`, прицельный `go test -run '^TestV102ExistingStreamKeepsBackendAfterAtomicRouteSwap$' -count=1 -v`, затем полный `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...`, `go build`; фиксировать каждый код. Без результата **`STEP2=IN_PROGRESS`**, `HOT_ROUTE_RUNTIME_PASS=NOT_CONFIRMED`, `LIVE_DEPLOY=NO`.
