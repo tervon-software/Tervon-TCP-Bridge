@@ -508,3 +508,17 @@ go vet ./...
 **Статусы:** `REAL_ACK_OLD_TEST=FAIL`, `ROOT_CAUSE=TEST_BACKEND_JSON_FIELD_ORDER`, `FIX_SOURCE=COMMITTED`, `FIX_HOMESERVER_TEST=PENDING`, `STEP3=IN_PROGRESS`, `RELEASE=NO`.
 
 **Следующая проверка:** обновить HEAD на Homeserver и перенести **только исправленный тест** в уже существующее изолированное source tree `/opt/tervon/Developed/v102-policy-ack-validation/prototype/cmd/bridge/policy_ack_integration_test.go` после точной проверки, что старый staged test совпадает с blob `313b4aa...`. Повторно **не** создавать worktree и **не** применять уже применённые overlays. Запустить прицельный тест и общий go test/vet в этом же изолированном дереве, зафиксировать реальные коды; после FAIL не переходить к Docker ACK интеграции.
+
+## 2026-11-22 — Этап 3: реальный SIGHUP Policy ACK изолированного ядра — PASS
+
+**Источник доказательства:** полный вывод команды Homeserver от оператора; **HEAD исходников проекта:** `bf90fbeef95b410a719aee61d8f785245c796992`, ветка `work/m6-android-ingress`. `git pull --ff-only` выполнил `Fast-forward 313b4aa..bf90fbe`. Ранее созданный изолированный worktree `/opt/tervon/Developed/v102-policy-ack-validation` на **release source commit** `96c136702d10b6fb9a16aa2893f6b978e8b14e86` сохранён; проверка `git show OLD:test | cmp - staged test` прошла до замены только тестового файла. `TEST_SOURCE_UPDATED=YES`, `CORE_SOURCE_UNCHANGED=YES`; никакие overlays повторно не применялись.
+
+**Результаты:**
+- `go test -count=1 -v -run '^TestV102RealProcessSIGHUPPolicyGenerationACK$' ./cmd/bridge`: `PASS`, `ok tervon-tcp-bridge/cmd/bridge 0.932s`; `ACK_RC=0`. Этот тест запускает настоящий отдельный subprocess Bridge, проверяет полученный `M6_POLICY_RELOAD=PASS digest=<expected>`, отказ `M6_POLICY_RELOAD=FAIL fixed config changed` и повторный успешный reload при восстановлении разрешённой конфигурации. Сценарий проверяется тестом без публикации ключей/реальных backend.
+- `go test -count=1 ./...`: все шесть пакетов `tervon-tcp-bridge`, `cmd/bridge`, `framing`, `jitter`, `padding`, `telemetry` имеют `ok`; `TEST_RC=0`.
+- `go vet ./...`: сообщений нет, `VET_RC=0`.
+- `RUNNING_SERVICES=UNCHANGED`, `SSH_CONSOLE=OPEN`. Команда не запускала сигналы для production Docker / Xray и не выпускала APK.
+
+**Область PASS:** `ISOLATED_REAL_PROCESS_ACK=PASS`, `POLICY_DIGEST_MATCH=PASS`, `FIXED_CONFIG_REJECTED=PASS`, `RECOVERY_RELOAD=PASS`, `GO_TEST=PASS`, `GO_VET=PASS` для **изолированного staged-кандидата** релизного ядра v1.0.1 + M6 ACL overlay + v1.0.2 routes overlay с исправленным тестом; исходник ядра после успешного теста не менялся. Это снимает предыдущий FAIL, вызванный разницей структуры/словаря в тестовом JSON. Результат не равен проверке Docker или панели.
+
+**Остаётся:** `PRODUCTION_DOCKER_POLICY_ACK=NOT_TESTED`, `V102_CONTROLLER_DOCKER_ACK=NOT_CONNECTED`, `API_3XUI_REMNAWAVE_TO_POLICY=NOT_CONNECTED`, `XRAY_APPLIED_CONFIG_VALIDATION=INCOMPLETE`, `LIVE_DISCOVERY_GENERATION=NOT_CONNECTED`, `ANDROID_INTERNET=NOT_PASS`, `STAGE3=IN_PROGRESS`, `V102_RELEASE=NO`. Следующий согласованный подшаг: подготовить доверенный confirmer целевого **кандидата** v1.0.2, сверяющий точный целевой контейнер и именно полную `M6_POLICY_RELOAD=PASS digest=...`, без использования прежнего ACL-only ACK и без действий на действующем Docker. Нельзя считать Docker-кандидат установленным до отдельной проверки.
