@@ -139,12 +139,28 @@ def test():
                 print("ROUTES_AND_ACL_RELOAD=PASS", flush=True)
                 print("EXACT_GENERATION_ACK=PASS", flush=True)
 
+                # The strict load() checks missing service references before
+                # RuntimePolicy.Replace(). Expect the correct first-stage rejection.
                 wrong = dict(config_b, authorized=auth_a)
                 write_config(cfgfile, wrong)
                 process.send_signal(signal.SIGHUP)
+                await_marker(logpath, "M6_POLICY_RELOAD=FAIL invalid config", process)
+                ensure(lines(logpath).count(success_marker) == 1, "INCONSISTENT_POLICY_WAS_ACKNOWLEDGED")
+                print("INCONSISTENT_POLICY_REJECTED_BY_LOADER=PASS", flush=True)
+
+                # Both hex spellings decode to the same fingerprint. load()
+                # accepts both keys individually, but RuntimePolicy rejects
+                # the duplicate identity before publication.
+                duplicate_acl = {
+                    "b" * 64: ["vpn-new"],
+                    "B" * 64: ["vpn-new"],
+                }
+                wrong_runtime = dict(config_b, authorized=duplicate_acl)
+                write_config(cfgfile, wrong_runtime)
+                process.send_signal(signal.SIGHUP)
                 await_marker(logpath, "M6_POLICY_RELOAD=FAIL invalid routes or ACL", process)
-                ensure(lines(logpath).count(success_marker) == 1, "INVALID_POLICY_WAS_ACKNOWLEDGED")
-                print("INVALID_POLICY_REJECTED=PASS", flush=True)
+                ensure(lines(logpath).count(success_marker) == 1, "INVALID_RUNTIME_POLICY_WAS_ACKNOWLEDGED")
+                print("INVALID_POLICY_REJECTED_BY_CORE=PASS", flush=True)
 
                 static_change = dict(config_b, max_streams=1)
                 write_config(cfgfile, static_change)
