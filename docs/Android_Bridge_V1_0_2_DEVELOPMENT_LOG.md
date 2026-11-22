@@ -347,3 +347,10 @@
 - **Сохранено:** существующие HTTPS endpoint и TLS trust, получение сертификата по PKCS#10 CSR, проверка/ограничение размера CSR, активация клиентского отпечатка через существующий ACL callback до ответа 200, существующие проверочные отказные сценарии. `ConfirmedRouteStore` и серверный route-sync как самостоятельные серверные компоненты не удалены и не изменены.
 - **Новая проверка:** в unit-тестах GET Discovery и POST CSR проверяются без серверного route coordinator, отсутствие `tcp_routes` и `policy_generation` и успешный callback ACL. В CI проверять текущую ревизию; прежние PASS не означают готовность новой.
 - **Граница:** GitHub source only; действующий сервер, Docker, Xray, Bridge, Android-приложение и сертификаты не трогались. `ENROLLMENT_SOURCE_FIX=IMPLEMENTED`, `CI=AWAITING_RESULT`, `SERVER_DEPLOYMENT=NOT_RUN`, `DEVICE_E2E=NOT_RUN`.
+
+### Запись 024 — подтверждённые CI после устранения связки CSR→route-generation
+
+- **Точный кодовый commit:** `7c2f3d4cb913db9580bb502060fbd87d833bb420` (`work/m6-android-ingress`).
+- **GitHub Actions:** `M6 3X-UI adapter tests` run `45034267860` — `completed/success` (PASS), включая Go unit/race; `M6 runtime ACL source check (released v1.0.1)` run `45034267873` — `completed/success` (PASS), включая проверку регистратора и source overlay на Linux release.
+- **Результат:** ошибочная обязательная зависимость от `ConfirmedRouteStore` удалена; автоматическая выдача сертификата и вызов существующей ACL-активации сохранены. `tcp_routes` не возвращено.
+- **Граница:** CI подтверждает исходный код и тестовые проверки на точном commit, **не** реальную выдачу сертификата устройству, не Android TCP E2E и не серверное развёртывание. Ни одна рабочая служба не изменена. `SOURCE_CI=PASS`, `LIVE_ENROLLMENT=NOT_TESTED`, `ANDROID_E2E=NOT_TESTED`.

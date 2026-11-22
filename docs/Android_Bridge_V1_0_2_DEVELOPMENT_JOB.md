@@ -230,3 +230,10 @@
 - **Expected:** регистратор не создаёт пустой store; HTTP handler не требует route ACK; Discovery сообщает `remote_url`, `server_name`, `service`, CA; не содержит `tcp_routes`/`policy_generation`; POST CSR выдаёт сертификат только после успешного `Activate` (при отказе — 503); unsupported request assertions сохраняются.
 - **Кодовые проверки:** Go unit/race CI на точном изменённом commit. Функциональную работу с реальным сервером и выдачу устройства в этом job не заявлять.
 - **Службы:** не изменяются. `CODE_UPDATED=YES`, `CI=AWAITING_RESULT`, `ANDROID_E2E=NOT_RUN`.
+
+### JOB-018 — CI для исправленного CSR/Discovery на точном HEAD
+
+- **Commit под испытанием:** `7c2f3d4cb913db9580bb502060fbd87d833bb420`.
+- **Проверка 1:** GitHub Actions `M6 3X-UI adapter tests`, `run_id=45034267860`, `status=completed`, `conclusion=success` => PASS.
+- **Проверка 2:** GitHub Actions `M6 runtime ACL source check (released v1.0.1)`, `run_id=45034267873`, `status=completed`, `conclusion=success` => PASS.
+- **Функциональная граница:** `GO_SOURCE_CI=PASS`; `HTTP_DEVICE_ENROLLMENT=NOT_TESTED`, `ANDROID_E2E=NOT_RUN`, `SERVER_CUTOVER=NOT_RUN`; тесты не означают, что изменённая сборка работает на сервере. Docker/Xray/Go Bridge/live services не трогались.
