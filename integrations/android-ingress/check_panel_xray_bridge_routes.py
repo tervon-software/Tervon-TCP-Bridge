@@ -105,7 +105,9 @@ def parse_panel(payload):
 
 
 def get_panel(base_url, header_file):
-    if not isinstance(base_url, str) or not base_url:\n        raise AuditBlocked("PANEL_URL_NOT_SUPPLIED")\n    parsed = urlsplit(base_url)
+    if not isinstance(base_url, str) or not base_url:
+        raise AuditBlocked("PANEL_URL_NOT_SUPPLIED")
+    parsed = urlsplit(base_url)
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise AuditBlocked("PANEL_URL_INVALID")
     try:
