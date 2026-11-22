@@ -207,3 +207,12 @@
 - **Фактически предоставлено оператором:** `M6_PATCHED_SOURCES=PASS`; `BUILD SUCCESSFUL in 19s`; `72 actionable tasks: 5 executed, 67 up-to-date`; `KOTLIN_COMPILE=PASS`; `ANDROID_E2E=NOT_TESTED`; `SERVER_SERVICES=UNTOUCHED`; `COMMAND_EXIT_CODE=0`; `SSH_CONSOLE=OPEN`. Точная дата/время выполнения команды по серверным часам и новый Git HEAD приложения не представлены. Две целевые SHA256: `6b8cfc1fc4f0cdb912be5485f21ba2a9364796dcaf6793bcdf785aa4b3032004` и `79b3d3a1cc4ba1725523f40c0fc32458efc420b9072f0add98f02f46e9cb375f`.
 - **Примечание:** предыдущий dry-run патчера заблокирован потому, что первый Kotlin файл уже имел целевой SHA. Не утверждать, что исправление было применено последней командой; проверено соответствие текущего состояния.
 - **Итог:** `SOURCE_HASH_CHECK=PASS`, `KOTLIN_COMPILE=PASS`; `DEVICE_TCP_E2E=NOT_RUN`, `APK_BUILD=NOT_RUN`, `GO_TRANSPORT_INTEGRATION=NOT_CONFIRMED`, `RELEASE=NOT_READY`.
+
+### JOB-015 — Android unit test Gradle task lookup failure (оператор Homeserver)
+
+- **Question:** доступны ли Kotlin/JVM unit tests через `./gradlew :app:testReleaseUnitTest --offline --no-daemon`?
+- **Result supplied by operator:** `FAILURE: Build failed`, `Cannot locate tasks that match ':app:testReleaseUnitTest' as task 'testReleaseUnitTest' not found in project ':app'`; `BUILD FAILED in 14s`; `4 actionable tasks: 4 up-to-date`; `UNIT_TEST_RC=1`, `COMMAND_EXIT_CODE=1`, `SSH_CONSOLE=OPEN`. Ошибка — отсутствующий task, **не тестовый assert и не ошибка Kotlin**.
+- **Prior result retained:** `KOTLIN_COMPILE=PREVIOUS_PASS`, source hashes PASS по JOB-014. `APK_BUILD=NOT_RUN`, `ANDROID_E2E=NOT_TESTED`, `SERVER_SERVICES=UNTOUCHED`.
+- **Warnings:** Kotlin embedded/plugin mismatch и Kotlin/AGP migration notices, но нет данных, что они вызвали этот FAIL. Версии и build config не изменять без отдельного решения.
+- **Next:** read-only listing `:app:tasks --all`, inspection of actual `test` source sets and Gradle plugin settings before choosing any test command. Do not invent a test task or count this as unit-test execution.
+- **Status:** `UNIT_TEST_TASK=ABSENT`, `ANDROID_UNIT_TESTS=NOT_RUN`, `KOTLIN_COMPILE=PASS_PREVIOUS`, `DEVICE_E2E=NOT_RUN`.

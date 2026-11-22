@@ -322,3 +322,10 @@
 - **Не проверено:** реальный `service` выбранного профиля, запуск Go Encapsulator из VpnService, сохранение байтов, связь с Decapsulator, APK/device E2E, доступность интернета, самостоятельный JVM unit-test. `ANDROID_E2E=NOT_TESTED`, `M6_RELEASE=NOT_READY`.
 - **Службы:** оператор подтвердил `SERVER_SERVICES=UNTOUCHED`; этот этап их не изменял.
 - **Текущий документационный HEAD до записи:** `6c451261b4f53592b98dd13604a07ae54aa1036a`. Статус `M6_TWO_FILE_SOURCE_HASH=PASS`, `KOTLIN_COMPILE=PASS`, `DEVICE_TCP_E2E=NOT_RUN`.
+
+### Запись 021 — вызов отсутствующей Android unit-test задачи (не дефект компиляции)
+
+- **Отчёт оператора Homeserver:** `bash ./gradlew :app:testReleaseUnitTest --offline --no-daemon` завершился с `UNIT_TEST_RC=1`, `COMMAND_EXIT_CODE=1`, `BUILD FAILED in 14s`. Gradle указал точную причину: `task 'testReleaseUnitTest' not found in project ':app'`.
+- **Диагноз:** ранее ассистент выбрал имя Gradle-задачи без чтения текущего списка задач проекта. Никакие unit tests не исполнялись. Ранее подтверждённая Kotlin-компиляция JOB-014 остаётся PASS; по этому логу нет причины менять Gradle/Kotlin версии или рабочий APK.
+- **Граница:** `APK_BUILD=NOT_RUN`, `ANDROID_E2E=NOT_TESTED`, `SERVER_SERVICES=UNTOUCHED`. Следующее действие — только чтение списка фактических задач `:app:tasks --all` и наличия unit-test исходников. Никаких изменений кода/серверных служб.
+- **Documentation parent HEAD:** `d06760d20b2e2580bb17657f9210544dcfe9e86b`; дата пользовательской проверки 2026-11-22, точное время на Homeserver не предоставлено.
