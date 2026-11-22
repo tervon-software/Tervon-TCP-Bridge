@@ -1,5 +1,7 @@
 # M6 — фактический порядок интеграции профилей TervonVPN DPI
 
+> **АРХИВНЫЙ СНИМОК ЭТАПА, НЕ ДЕЙСТВУЮЩАЯ ИНСТРУКЦИЯ (ревизия 2026-11-22).** Датированные статусы, старые примеры адресов/портов, команды cutover/patch и признаки NOT_IMPLEMENTED/PENDING ниже не отражают текущее состояние M6. Не выполнять команды из этого документа без нового утверждённого плана и сверки фактического кода/сервисов. Актуальные факты: [`DEVELOPMENT_PLAN.md`](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/work/m6-android-ingress/docs/DEVELOPMENT_PLAN.md), [`M6_AUDIT_2026-11-22.md`](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/work/m6-android-ingress/docs/M6_AUDIT_2026-11-22.md). Android Bridge E2E = FAIL; исторические PASS относятся только к явно названному слою.
+
 **Источник:** предоставленный оператором `m6-event-integration-review.tar.gz` с шестью актуальными файлами `/opt/tervonvpndpi`, 2026-11-20. **Статус: анализ кода; не реализация маршрутизации, не PASS на телефоне.**
 
 ## Проверенные API
