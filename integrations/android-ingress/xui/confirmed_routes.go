@@ -71,3 +71,12 @@ func(s *ConfirmedRouteStore) PublishAfterCoreACK(ctx context.Context, routes map
  s.ready=true
  return nil
 }
+
+// Invalidate suspends new discovery when the provider/Xray runtime snapshot is
+// no longer verified. Existing core TCP connections are not changed.
+func(s *ConfirmedRouteStore) Invalidate(){
+ if s==nil{return}
+ s.mu.Lock()
+ defer s.mu.Unlock()
+ s.ready=false
+}
