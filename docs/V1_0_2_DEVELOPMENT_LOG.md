@@ -206,3 +206,22 @@ go vet ./...
 **Статусы:** `STAGE3_RECONCILE_SOURCE=COMMITTED`; `STAGE3_RECONCILE_GO_TEST=NOT_RUN`; `REMNAWAVE_NODE_API_SCHEMA=UNVERIFIED`; `REMNAWAVE_REAL_ADAPTER=NOT_IMPLEMENTED`; `XRAY_LIVE_CONFIG_READER=NOT_CONNECTED`; `CORE_ACK_AND_DISCOVERY=NOT_CONNECTED`; `STAGE3_PASS=NO`; `RELEASE_V1_0_2=NO`. Утверждение, что эти файлы завершили интеграцию 3x-ui или Remnawave, запрещено.
 
 **Следующая проверка:** на точном source HEAD выполнить `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...` для `integrations/android-ingress/xui`. При любых FAIL исправить этот пакет, не переходить к API endpoint integration. Не затрагивать живые службы.
+
+## 2026-11-22 — Этап 3: проверка общего согласования 3x-ui / Remnawave на Homeserver
+
+**Источник:** пользовательский полный терминальный вывод Homeserver; не CI и не предположение. **Точно проверенный source HEAD:** `a99bc49f1a45ea73285b49e8cbdac79d2b373998`; рабочая ветка `work/m6-android-ingress`. Перед испытанием успешно выполнен `git pull --ff-only origin work/m6-android-ingress`: `Fast-forward` от `087ebfe` до `a99bc49`. Проверка tracked-изменений и правильной ветки пройдена, иначе операторский subshell остановился бы.
+
+**Проверенные файлы:** `integrations/android-ingress/xui/route_reconcile.go` и `route_reconcile_test.go` вместе с прочими существующими файлами Go-модуля `integrations/android-ingress/xui`.
+
+| Контроль | Подтверждённый результат |
+|---|---|
+| `go test -count=1 ./...` | `TEST_RC=0`: все 6 Go packages `ok` |
+| `go test -race -count=1 ./...` | `RACE_RC=0`: все 6 Go packages `ok` |
+| `go vet ./...` | `VET_RC=0`, отсутствие диагностического вывода |
+| Безопасность интерактивного сеанса | `SSH_CONSOLE=OPEN` |
+
+**Вывод:** `STAGE3_RECONCILE_SOURCE_TEST=PASS`, `STAGE3_RECONCILE_RACE=PASS`, `STAGE3_RECONCILE_VET=PASS` **исключительно на commit `a99bc49...`**. Включены тестовые модели чтения источников 3x-ui и предварительно отфильтрованных данных Remnawave для выбранной ноды, но это **не означает наличие работающего Remnawave API-адаптера**.
+
+**Оставшиеся задачи этапа 3:** реальный Remnawave API Node→Profile→active inbound adapter, фактическое получение effective Xray, согласование атомарного ACL+Routes ядра с discovery и подтверждённой генерацией маршрутов. `3XUI_LIVE_ROUTE_SYNC=NOT_IMPLEMENTED`, `REMNAWAVE_REAL_API=NOT_TESTED`, `CORE_DISCOVERY_SNAPSHOT_ACK=NOT_IMPLEMENTED`, `ANDROID_E2E=NOT_PASS`, `STAGE3_OVERALL=IN_PROGRESS`, `RELEASE_V1_0_2=NO`. Тестовая команда не включала развёртывания или перезапуска служб; отдельная инструментальная проверка неизменности служб не выполнялась.
+
+**Следующий шаг:** дальнейшая ревизия именно фактического API Remnawave/назначения ноды и реализация изолированного provider adapter. Для внедрения требуется отдельный PASS сквозной связи с ядром. Не менять работающие службы до отдельного разрешения.
