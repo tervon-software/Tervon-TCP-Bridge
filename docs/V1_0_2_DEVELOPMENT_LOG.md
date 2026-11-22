@@ -536,3 +536,20 @@ go vet ./...
 **Статус:** `POLICY_DOCKER_CONFIRMER=SOURCE_COMMITTED`, `MOCK_TEST=NOT_RUN_ON_HOMESERVER`, `RACE=NOT_RUN`, `VET=NOT_RUN`, `LIVE_DOCKER=UNCHANGED`, `STAGE3=IN_PROGRESS`, `RELEASE=NO`.
 
 **Следующий checkpoint:** `go test -count=1 -v -run '^(TestPolicyACKInLogs|TestV102DockerPolicyConfirmer)' .`, `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...` в `integrations/android-ingress/xui` на новом точном HEAD. Любой FAIL исправлять в этом же компоненте; после PASS обновить журнал. Не вызывать данный confirmer на производственном Docker.
+
+## 2026-11-22 — Этап 3: Homeserver PASS Docker Policy ACK Confirmer (mock)
+
+**Источник:** предоставленный оператором полный терминальный вывод. `git pull --ff-only origin work/m6-android-ingress` выполнил `Fast-forward bf90fbe..0e7a80b`. **Точно испытанный SOURCE_HEAD:** `0e7a80bc1d2d246ea254c3f3f6bd79cdaa29e45b`; Go-модуль `integrations/android-ingress/xui`.
+
+**Результаты:**
+- Прицельно `go test -count=1 -v -run '^(TestPolicyACKInLogs|TestV102DockerPolicyConfirmer)' .`: `TestPolicyACKInLogsExactPostSignalGeneration` PASS; `TestV102DockerPolicyConfirmerMockExactTarget` PASS; `TestV102DockerPolicyConfirmerRejectsLegacyAndWrongACK` PASS; `ACK_RC=0`.
+- `go test -count=1 ./...`: все 6 packages `ok`; `TEST_RC=0`.
+- `go test -race -count=1 ./...`: все 6 packages `ok`; `RACE_RC=0`.
+- `go vet ./...`: без диагностических сообщений; `VET_RC=0`.
+- `SSH_CONSOLE=OPEN`.
+
+**Вывод в пределах проверенного:** `DOCKER_POLICY_ACK_MOCK=PASS`, `FULL_GO_MODULE=PASS`, `RACE=PASS`, `VET=PASS` на указанном SHA. Проверены требование явной идентичности контейнера, проверка времени и точного текста `M6_POLICY_RELOAD=PASS digest=...`, отказ от ACL-only и некорректных mount/образов. Тесты используют подменный Docker executable в временном PATH; **реальный Docker-кандидат не опрашивался, не сигнализировался и не обновлялся**.
+
+**Статусы:** `REAL_DOCKER_POLICY_CONFIRM=NOT_TESTED`; `PANEL_API_TO_CORE=NOT_CONNECTED`; `XRAY_RUNTIME_PROOF=INCOMPLETE`; `LIVE_DISCOVERY_SYNC=NOT_CONNECTED`; `ANDROID_INTERNET=NOT_PASS`; `STEP3_OVERALL=IN_PROGRESS`; `V102_RELEASE=NO`.
+
+**Следующее действие:** сверить уже имеющиеся read-only API адаптеры 3x-ui/Remnawave, `ReconcileInbounds`, `PolicyGenerationDigest`, `ConfirmedRouteStore` и Docker confirmer, чтобы минимально связать всю цепочку в изолированном тесте без новых компонентов для той же функции. При выявлении недостаточной доказанности applied Xray не публиковать маршруты и не изменять активные службы.
