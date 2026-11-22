@@ -97,13 +97,14 @@ func NewRuntimePolicy(routes map[string][]Backend, authorized map[string][]strin
 }
 
 // Lookup checks both admission and backend list against a single generation.
-// The returned slice belongs to the immutable snapshot; callers must not edit it.
+// Return a copy so callers cannot mutate the published immutable snapshot.
 func (policy *RuntimePolicy) Lookup(id [sha256.Size]byte, service string) ([]Backend, bool) {
     if policy == nil { return nil, false }
     snapshot := policy.current.Load()
     if snapshot == nil || !snapshot.authorized[id][service] { return nil, false }
     backends := snapshot.routes[service]
-    return backends, len(backends) > 0
+    if len(backends) == 0 { return nil, false }
+    return append([]Backend(nil), backends...), true
 }
 
 // Replace builds and validates a complete candidate before atomic publish.
