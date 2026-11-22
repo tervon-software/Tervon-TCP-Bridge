@@ -696,3 +696,11 @@ go vet ./...
 **Критерии:** `PROJECTION_TEST_RC=0`; runtime `XRAY_RUNTIME_AUDIT=PASS_GRPC_PROJECTION` только при полноценном декодировании и отсутствии mismatch/unsupported. `XRAY_PANEL_API_SELECTION=NOT_TESTED` даже при PASS; не путать с актуальным выбором в панели. Допускается `BLOCKED` при несовместимости installed binary; не выдумывать порт API. Процессный PID `1253673` используется **как идентификационный guard по ранее проверенному процессу**, не как hardcoded backend endpoint; если PID изменился — прекратить read-only проверку и не искать/не менять процессы автоматически.
 
 **Статус:** `GRPC_PROJECTION_SOURCE=COMMITTED`; `GRPC_PROJECTION_UNIT_ON_HOST=PENDING`; `XRAY_RUNTIME_AUDIT=PENDING`; `PRODUCTION_XRAY_DOCKER=UNCHANGED`; `STAGE3=IN_PROGRESS`; `RELEASE=NO`. 
+
+## 2026-11-22 — M6 этап 3: Homeserver полный Xray gRPC аудит — BLOCKED, тесты декодера PASS
+
+**Испытанный SOURCE_HEAD:** `7e3dc502549a51b003b563b03c0b42a7d1eee243`, `work/m6-android-ingress`. Оператор выполнил утверждённый один пакет: `git pull --ff-only` и `python3 -m unittest -v test_check_xray_grpc_runtime.py`, затем `python3 check_xray_grpc_runtime.py`. Fast-forward `b08814a..7e3dc50`; четыре теста `test_extract`, `test_reject_duplicate_tag`, `test_reject_invalid_wire_and_missing_fields`, `test_reject_range` — PASS (0.001s); `TEST_RC=0`. Реальная проверка: `XRAY_RUNTIME_AUDIT=BLOCKED`, `REASON=RUNTIME_SCHEMA_OR_SOURCE_UNAVAILABLE`, `RUNTIME_RC=2`; `RUNNING_SERVICES=UNCHANGED`; `SSH_CONSOLE=OPEN`.
+
+**Не делать ложных выводов:** подтверждённый ранее `api lsi --isOnlyTags=true` остаётся PASS (5 handlers), но попытка полного разбора показала недифференцированную ошибку скрипта. Широкий except скрывает конкретный этап (конфиг / полный RPC / protojson / бинарный protobuf), так что **корень BLOCKED не определён**. `XRAY_APPLIED_ROUTE_DETAILS=NOT_CONFIRMED`, production без изменений. Нельзя менять 3x-ui/Xray/Docker на основании этого BLOCKED.
+
+**Исправление в рамках этого же диагностического компонента:** минимально добавить фиксированный, безопасный `FAILED_STAGE` (без печати исключения, конфиг-пути, tags/секретов), исключать service inbound `api` из декодирования proxySettings. Повторная проверка одним пакетом после source commit; при отсутствии подтверждённого результата оставаться BLOCKED. 
