@@ -122,3 +122,18 @@ go vet ./...
 **Исправление:** в `integrations/android-ingress/runtime-routes/apply-to-acl-source.py` список `EXTRA` расширен ровно на `policy_stream_test.go`. Commit исходника `2828b8fe12a0bb5b309ff24526ebec61c80eea1f`. Иных изменений кода, transport, ACL, API, Docker или Android нет.
 
 **Следующее контрольное испытание:** использовать уже созданную изолированную `/opt/tervon/Developed/v102-route-validation`, которая содержит ранее staged Go v1.0.2. Проверить совпадение исходных `policy.go` и `policy_test.go` с GitHub, отсутствие `policy_stream_test.go` и перенос **только** недостающего тестового файла из текущего checkout GitHub в изолированное `prototype/`. Запустить `gofmt`, прицельный `go test -run '^TestV102ExistingStreamKeepsBackendAfterAtomicRouteSwap$' -count=1 -v`, затем полный `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...`, `go build`; фиксировать каждый код. Без результата **`STEP2=IN_PROGRESS`**, `HOT_ROUTE_RUNTIME_PASS=NOT_CONFIRMED`, `LIVE_DEPLOY=NO`.
+
+## 2026-11-22 — Шаг 2: выяснение причины прерванного повторного прогона
+
+**Источник:** вывод последующей исключительно read-only диагностики, присланный оператором. Указанные ниже сведения описывают реальное состояние отдельной worktree, а не предположение о runtime.
+
+- Исходный checkout: `work/m6-android-ingress`; HEAD `087ebfee9ad99ec5ae2e6624452fdb9c06eb842c`.
+- Изолированная worktree `/opt/tervon/Developed/v102-route-validation`: релизный HEAD `96c136702d10b6fb9a16aa2893f6b978e8b14e86`.
+- `policy.go=EXISTS`, `policy_test.go=EXISTS`, `policy_stream_test.go=MISSING`.
+- `cmp` исходников `policy.go`/`policy_test.go` GitHub против изолированного дерева: оба `DIFFERENT`. Проверка `gofmt -l` не вывела файлов, то есть staged файлы уже отформатированы.
+- Предыдущий прогон содержал `cmp ... || exit 1` непосредственно в операторском shell: несовпадение могло прервать интерактивную оболочку/SSH-консоль. **Причина закрытия консоли не доказана системным журналом**, но неуспешный `cmp` подтверждён. Из-за предыдущего `gofmt` прямое побайтовое сравнение с неформатированным репозиторием было некорректным критерием эквивалентности. Это дефект операторской инструкции, а не подтверждённая ошибка Go runtime.
+- **Рабочие службы не проверялись и не изменялись в этой read-only диагностике**.
+
+**Корректировка следующей проверки:** все команды, которые могут завершиться ошибкой, запускать в дочерней оболочке (скобки, subshell); не использовать `exit` в интерактивной SSH-оболочке. Текущие `policy.go` и `policy_test.go` не переписывать и не повторять уже завершённые overlay. Сравнить **нормализованные gofmt-версии** исходных файлов с staged (например, `gofmt -d` или `gofmt -s` с выводом в `cmp`), затем перенести только отсутствующий `policy_stream_test.go`, выполнить прицельный live-stream и полный test/race/vet/build с отдельными RC. Если нормализованное сравнение обнаружит семантическое расхождение — блокировать копирование и разобраться; не объявлять PASS.
+
+**Текущий статус:** `STEP2=IN_PROGRESS`, `SOURCE_ONLY`, `NEW_TEST_MISSING_FROM_STAGE`, `E2E_ROUTE_SWAP=NOT_TESTED`, `RELEASE=NO`.
