@@ -100,3 +100,11 @@
 - **Фактически:** `ANDROID_BRIDGE_V102_ROUTE_UNIT=PASS`, exit 0; positive 12 network inputs; UDP/quic/h3/kcp/unknown/whitespace отрицательные; invalid remote host/port, unverified discovery, invalid/not-ready listener rejected; disabled passes directly; original endpoint preserved.
 - **Контроль точного GitHub source:** `git hash-object BridgeVlessRoutePlan.kt=0dee3044f466a400a0fab743bbad8c3b4b4e1b0c` совпал с GitHub create_blob; `git hash-object BridgeVlessRoutePlanTest.kt=00bef36ab5b02db14f26afd62eea068d1ade37a5` совпал. SHA256 src `d62fea47cb9ff8852499c49985f212823ce234b3c385083a92acc68d3b3fb8c8`, test `394a7419ba329927aa35492fe8c1a4afb5a84266b54c230ec954add0366e6dea`.
 - **Статус:** `PASS_ISOLATED_EXACT_BLOB`; `ANDROID_APP_GRADLE=NOT_RUN`; `ACTUAL_VPN_LOOP=NOT_TESTED`; `TLS_H2_MTLS=NOT_TESTED`; `DEVICE_E2E=NOT_RUN`. Код не изменял приложение или сервер. Точное время выполнения локального `kotlinc` отдельно не замерялось — `EXECUTION_TIME_NOT_VERIFIED`, timestamp GitHub исходного/docs commit запишем отдельным пунктом.
+
+### JOB-005 — Время проверенных коммитов
+
+Источник — GitHub `fetch_commit.created_at`, UTC и Новосибирск UTC+7:
+- Код + точные unit-файлы: `29375777562f8e54f1d78f9dfbacb0d8e6c1bcb3`, **2026-11-22 11:42:05Z / 18:42:05 (+07)**.
+- DEVELOPMENT_LOG запись 008: `49eddf43aa14858fc1d10fed7c09d31a995ed7a1`, **11:42:31Z / 18:42:31 (+07)**.
+- DEVELOPMENT_JOB запись JOB-005: `6f149f1c40d4621a13e4dfe7fc1adc5e2d01da02`, **11:42:44Z / 18:42:44 (+07)**.
+- Отдельная локальная метка начала/конца unit теста не собиралась, поэтому `TEST_EXECUTION_TIME=NOT_MEASURED`; времена Git commit не выдавать за точное время самого теста.
