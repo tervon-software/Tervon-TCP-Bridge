@@ -105,7 +105,7 @@ def parse_panel(payload):
 
 
 def get_panel(base_url, header_file):
-    parsed = urlsplit(base_url)
+    if not isinstance(base_url, str) or not base_url:\n        raise AuditBlocked("PANEL_URL_NOT_SUPPLIED")\n    parsed = urlsplit(base_url)
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise AuditBlocked("PANEL_URL_INVALID")
     try:
@@ -211,7 +211,7 @@ def compare(approved, panel, runtime):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--panel-base-url", required=True)
+    parser.add_argument("--panel-base-url", default=os.environ.get("M6_PANEL_BASE_URL"))
     parser.add_argument("--panel-header", default="/etc/tervon/bridge-android/private/xui-api-header")
     parser.add_argument("--bridge-config", default="/etc/tervon/bridge-android/config/server.json")
     args = parser.parse_args()
