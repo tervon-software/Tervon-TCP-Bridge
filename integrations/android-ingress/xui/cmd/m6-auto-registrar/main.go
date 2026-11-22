@@ -107,8 +107,8 @@ func discoverBridgeEndpoint(root, containerID, service string, serverCAPEM []byt
     return "https://" + net.JoinHostPort(name, strconv.Itoa(port)) + "/v2/stream", name, nil
 }
 
-// Read only opaque service identifiers from the running Bridge policy.
-// Never infer the panel's inbound port or Discovery mapping from server.json.
+// Read only opaque service identifiers from the Bridge runtime policy.
+// Never infer inbound ports or Discovery mappings from server.json.
 func configuredServiceNames(root string) ([]string, error) {
     data, err := os.ReadFile(filepath.Join(root, "config/server.json"))
     if err != nil { return nil, err }
@@ -117,116 +117,7 @@ func configuredServiceNames(root string) ([]string, error) {
     if cfg.Mode != "server" || len(cfg.Routes) == 0 || len(cfg.Routes) > 256 {
         return nil, errors.New("Bridge services unavailable")
     }
-    pattern := regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}// m6-auto-registrar serves Bridge discovery and CSR issuance behind an existing
-// HTTPS reverse proxy. This is NOT a 3x-ui or VPN-subscription authorization API.
-package main
-
-import (
-	"context"
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/x509"
-	"encoding/json"
-	"encoding/pem"
-	"errors"
-	"flag"
-	"fmt"
-	"log"
-	"net"
-	"net/http"
-	"os"
-	"os/exec"
-	"strconv"
-	"regexp"
-	"sort"
-	"strings"
-	"path/filepath"
-	"time"
-
-	"github.com/tervon-software/Tervon-TCP-Bridge/integrations/android-ingress/xui"
-)
-
-func clientCASigner(data []byte) (crypto.Signer,error) {
-	block,tail:=pem.Decode(data)
-	if block==nil || len(tail)!=0{return nil,errors.New("invalid existing client CA key PEM")}
-	var key any
-	var err error
-	switch block.Type {
-	case "PRIVATE KEY": key,err=x509.ParsePKCS8PrivateKey(block.Bytes)
-	case "EC PRIVATE KEY": key,err=x509.ParseECPrivateKey(block.Bytes)
-	default: return nil,errors.New("unsupported existing client CA private key type")
-	}
-	if err!=nil{return nil,errors.New("cannot parse client CA key")}
-	s,ok:=key.(*ecdsa.PrivateKey)
-	if !ok{return nil,errors.New("existing client CA is not ECDSA")}
-	return s,nil
-}
-
-
-type bridgeRuntimeConfig struct {
-    Mode string `json:"mode"`
-    Listen string `json:"listen"`
-    Routes map[string][]json.RawMessage `json:"routes"`
-}
-
-type publishedBinding struct {
-    HostIp string `json:"HostIp"`
-    HostPort string `json:"HostPort"`
-}
-
-// Resolve the public mTLS endpoint from the VERIFIED running Bridge container,
-// not from a second, manually maintained hostname or port list.
-func discoverBridgeEndpoint(root, containerID, service string, serverCAPEM []byte) (string, string, error) {
-    data, err := os.ReadFile(filepath.Join(root, "config/server.json"))
-    if err != nil { return "", "", err }
-    var cfg bridgeRuntimeConfig
-    if err = json.Unmarshal(data, &cfg); err != nil { return "", "", err }
-    if cfg.Mode != "server" || len(cfg.Routes[service]) == 0 {
-        return "", "", errors.New("existing Bridge VPN route unavailable")
-    }
-    _, internalPort, err := net.SplitHostPort(cfg.Listen)
-    if err != nil { return "", "", errors.New("invalid Bridge listen address") }
-
-    serverCertPEM, err := os.ReadFile(filepath.Join(root, "config/pki/server.crt"))
-    if err != nil { return "", "", err }
-    leafBlock, _ := pem.Decode(serverCertPEM)
-    rootBlock, _ := pem.Decode(serverCAPEM)
-    if leafBlock == nil || rootBlock == nil { return "", "", errors.New("Bridge server trust is incomplete") }
-    leaf, err := x509.ParseCertificate(leafBlock.Bytes)
-    if err != nil { return "", "", err }
-    ca, err := x509.ParseCertificate(rootBlock.Bytes)
-    if err != nil { return "", "", err }
-    if len(leaf.DNSNames) != 1 || leaf.DNSNames[0] == "" {
-        return "", "", errors.New("Bridge needs exactly one configured server TLS DNS identity")
-    }
-    name := strings.ToLower(leaf.DNSNames[0])
-    pool := x509.NewCertPool()
-    pool.AddCert(ca)
-    if _, err = leaf.Verify(x509.VerifyOptions{
-        DNSName:name, Roots:pool, KeyUsages:[]x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-    }); err != nil { return "", "", errors.New("Bridge server certificate verification failed") }
-
-    // Docker's published port is the only permitted source of the external
-    // host port. There must be exactly one non-loopback IPv4 binding.
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-    output, err := exec.CommandContext(ctx, "docker", "inspect", "--format",
-        "{{json .NetworkSettings.Ports}}", containerID).Output()
-    if err != nil { return "", "", errors.New("cannot inspect running Bridge port") }
-    var published map[string][]publishedBinding
-    if err = json.Unmarshal(output, &published); err != nil { return "", "", err }
-    bindings := published[internalPort + "/tcp"]
-    if len(bindings) != 1 || bindings[0].HostIp != "0.0.0.0" {
-        return "", "", errors.New("Bridge has no unambiguous public TCP listener")
-    }
-    port, err := strconv.Atoi(bindings[0].HostPort)
-    if err != nil || port < 1 || port > 65535 {
-        return "", "", errors.New("invalid published Bridge port")
-    }
-    return "https://" + net.JoinHostPort(name, strconv.Itoa(port)) + "/v2/stream", name, nil
-}
-
-)
+    pattern := regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
     services := make([]string, 0, len(cfg.Routes))
     for name, backends := range cfg.Routes {
         if !pattern.MatchString(name) || len(backends) == 0 {
@@ -273,8 +164,8 @@ func main() {
             HostConfigDirectory:filepath.Join(root,"config"),
         }.Confirm,
     }
-    // Fail closed until an external trusted coordinator confirms a complete
-    // generation. This source-only registrar is NOT ready for deployment.
+    // Fail closed until a trusted coordinator confirms a complete generation.
+    // This source-only registrar is NOT ready for deployment.
     enrollment := &xui.BridgeEnrollmentHTTP{
         RemoteURL:remote, ServerName:serverName, Service:service,
         ConfirmedRoutes: new(xui.ConfirmedRouteStore),
