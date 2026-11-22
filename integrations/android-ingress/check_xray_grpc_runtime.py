@@ -86,6 +86,9 @@ def extract(inbounds):
         if not isinstance(tag,str) or not tag or tag in seen:
             raise ValueError("ambiguous handler")
         seen.add(tag)
+        if tag=="api":
+            result.append((tag,0,"internal","internal"))
+            continue
         _,receiver_bytes=typed(item.get("receiverSettings"),"xray.app.proxyman.ReceiverConfig")
         proxy_type,_=typed(item.get("proxySettings"))
         receiver=wire_fields(receiver_bytes)
@@ -117,10 +120,12 @@ def blocked(reason):
     return 2
 
 def main():
+    stage="PROCESS_SOURCE"
     try:
         proc=Path(f"/proc/{KNOWN_PID}")
         if Path(os.readlink(proc/"exe")).name!="xray-linux-amd64":
             return blocked("PROCESS_CHANGED")
+        stage="CONFIG_SOURCE"
         args=[x.decode("utf-8") for x in (proc/"cmdline").read_bytes().split(b"\0") if x]
         paths=[]
         for i,arg in enumerate(args):
@@ -133,6 +138,7 @@ def main():
         config_path=Path(paths[0])
         if not config_path.is_absolute():
             config_path=Path(os.readlink(proc/"cwd"))/config_path
+        stage="CONFIG_READ"
         config=json.loads(config_path.read_text(encoding="utf-8"))
         selected=[v for v in config.get("inbounds",[]) if isinstance(v,dict) and v.get("tag")=="api"]
         if len(selected)!=1 or selected[0].get("listen") not in ("127.0.0.1","::1"):
@@ -142,13 +148,17 @@ def main():
             return blocked("API_PORT_INVALID")
         host=selected[0]["listen"]
         endpoint=f"[{host}]:{api_port}" if ":" in host else f"{host}:{api_port}"
+        stage="GRPC_QUERY"
         result=subprocess.run([str(proc/"exe"),"api","lsi","--server="+endpoint,
                                "--isOnlyTags=false","--timeout=3"],
                               capture_output=True,timeout=8,check=False)
         if result.returncode or len(result.stdout)>8*1024*1024:
             return blocked("GRPC_FULL_QUERY_FAILED")
+        stage="GRPC_RESPONSE_JSON"
         reply=json.loads(result.stdout)
+        stage="GRPC_PROTOBUF_PROJECTION"
         rows=extract(reply.get("inbounds"))
+        stage="REFERENCE_COMPARISON"
         reference={v.get("tag"):v for v in config.get("inbounds",[]) if isinstance(v,dict)}
         compared=0
         missing=0
@@ -192,7 +202,7 @@ def main():
         return 0
     except (OSError,ValueError,TypeError,KeyError,UnicodeError,
             json.JSONDecodeError,subprocess.TimeoutExpired):
-        return blocked("RUNTIME_SCHEMA_OR_SOURCE_UNAVAILABLE")
+        return blocked("RUNTIME_"+stage+"_UNAVAILABLE")
 
 if __name__=="__main__":
     sys.exit(main())
