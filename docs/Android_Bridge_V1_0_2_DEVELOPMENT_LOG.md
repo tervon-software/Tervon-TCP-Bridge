@@ -237,3 +237,9 @@
 - **Недостающие зависимости для компиляции новой обвязки:** архив НЕ включает актуальные `BridgeAutoEnrollmentHttp.kt`, `BridgeSubscriptionBinding.kt`, `BridgeDeviceIdentity.kt`, `BridgeServerCertificateStore.kt`, `BridgeClientConfigBuilder.kt`, `BridgeAutoCertificateEnrollment.kt` и действующие Dart consumers каналов. Их наличие видно только через имена вызовов, точный контракт неизвестен. Нельзя придумывать сигнатуры и обещать compile/functional PASS.
 - **Следующая строго согласованная работа:** новая обвязка в **семи** целевых файлах с единственным владельцем lifecycle, сохранением точных внешних `prepare/stop/active/register` call-sites, безопасной диагностикой и сохранением Go ARM64 ELF. Вначале прочитать недостающие интерфейсы и статус незакоммиченных изменений, затем одной пакетной заменой с тестами. **Пока код приложения не изменялся**.
 - **Статус:** `PRIVATE_CURRENT_ARCHIVE=VERIFIED`; `SEVEN_SHA_MATCH=PASS`; `CALLSITE_SOURCE_AUDIT=PASS_READ_ONLY`; `OLD_CHANNEL_DUPLICATION=CONFIRMED_SOURCE`; `LEGACY_TCP_ROUTES=CONFIRMED_SOURCE`; `APP_REWRITE=NOT_RUN`; `CURRENT_APP_COMPILE=NOT_RUN`; `NEW_DEVICE_E2E=NOT_RUN`. Время локального анализа неизвестно; timestamp фиксации устанавливается по metadata GitHub commit.
+
+### Запись 013 — GitHub timestamps source audit
+
+- Запись 012: `5924b007c5cce1f8840be48ece9155c1fa1b216a`, GitHub `created_at=2026-11-22 11:56:59 UTC` = **18:56:59 Новосибирск**.
+- JOB-008: `68b2689ec7880229fdbb3b1b1c339c12357b944e`, GitHub `created_at=2026-11-22 11:57:14 UTC` = **18:57:14 Новосибирск**.
+- Это время документальных коммитов, а не точное время исполнения локального Python. Приложение, Docker, сервер и бинарник не изменены.
