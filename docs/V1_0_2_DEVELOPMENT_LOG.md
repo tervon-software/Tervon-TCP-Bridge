@@ -137,3 +137,32 @@ go vet ./...
 **Корректировка следующей проверки:** все команды, которые могут завершиться ошибкой, запускать в дочерней оболочке (скобки, subshell); не использовать `exit` в интерактивной SSH-оболочке. Текущие `policy.go` и `policy_test.go` не переписывать и не повторять уже завершённые overlay. Сравнить **нормализованные gofmt-версии** исходных файлов с staged (например, `gofmt -d` или `gofmt -s` с выводом в `cmp`), затем перенести только отсутствующий `policy_stream_test.go`, выполнить прицельный live-stream и полный test/race/vet/build с отдельными RC. Если нормализованное сравнение обнаружит семантическое расхождение — блокировать копирование и разобраться; не объявлять PASS.
 
 **Текущий статус:** `STEP2=IN_PROGRESS`, `SOURCE_ONLY`, `NEW_TEST_MISSING_FROM_STAGE`, `E2E_ROUTE_SWAP=NOT_TESTED`, `RELEASE=NO`.
+
+## 2026-11-22 — Шаг 2: повторная проверка с полным комплектом тестов — PASS
+
+**Источник результата:** дословный вывод команды Homeserver, предоставленный оператором. Данная запись заменяет прежний открытый статус шага 2, но не удаляет историю предыдущей неудачной проверки.
+
+**Проверенный GitHub source HEAD:** `087ebfee9ad99ec5ae2e6624452fdb9c06eb842c`, ветка `work/m6-android-ingress`. **База отдельного тестового release worktree:** `96c136702d10b6fb9a16aa2893f6b978e8b14e86`. Испытан **наложенный v1.0.2 исходник** в `/opt/tervon/Developed/v102-route-validation/prototype`, а не исходники рабочей службы.
+
+**Порядок и доказательства:**
+1. Проверены два независимых HEAD, значения совпали с ожидаемыми.
+2. Выполнено нормализованное сравнение Go-кода: `policy.go=NORMALIZED_MATCH`; `policy_test.go=NORMALIZED_MATCH`. Это подтверждает, что прошлый прямой `cmp` расходился из-за форматирования, а не выявил доказанный семантический дефект.
+3. Недостающий `policy_stream_test.go` перенесён **только** в изолированное дерево и обработан `gofmt`.
+4. Прицельная проверка `go test -count=1 -timeout=120s -run '^TestV102ExistingStreamKeepsBackendAfterAtomicRouteSwap$' -v .`: `--- PASS: TestV102ExistingStreamKeepsBackendAfterAtomicRouteSwap (0.46s)`; `STREAM_RC=0`. Сценарий проверяет TLS/mTLS HTTP/2 → Bridge → два TCP-backend: старый поток остаётся на A, новый после атомарной замены попадает на B.
+5. `go test -count=1 -timeout=180s ./...`: **6 Go packages `ok`**, `TEST_RC=0` (корневой bridge, cmd/bridge, framing, jitter, padding, telemetry).
+6. `go test -race -count=1 -timeout=240s ./...`: **6 Go packages `ok`**, `RACE_RC=0`.
+7. `go vet ./...`: без диагностики ошибок, `VET_RC=0`.
+8. `go build -o /opt/tervon/Developed/v102-route-validation/bridge-v102.candidate ./cmd/bridge`: `BUILD_RC=0`.
+9. После дочерней оболочки присутствует `SSH_CONSOLE=OPEN`: операторский сеанс не прерван.
+
+**Итог:** `STEP2_SOURCE_OVERLAY=PASS`, `STEP2_STREAM_SWITCH=PASS`, `STEP2_TEST=PASS`, `STEP2_RACE=PASS`, `STEP2_VET=PASS`, `STEP2_BUILD=PASS`. **Шаг 2 закрыт как изолированный SOURCE + TEST PASS** на приведённых HEAD; после сохранения настоящей записи отдельным документационным commit. Это **НЕ** deployed/integration PASS, **НЕ** доказательство работы TCP VPN на Android. Нет фактической проверки SIGHUP live-config reload на контейнере, сквозной синхронизации API→routes→discovery, соответствия Xray и пользовательского интернета. `RUNTIME_CUTOVER=NOT_DONE`, `ANDROID_E2E=NOT_PASS`, `RELEASE_V1_0_2=NOT_RELEASED`.
+
+**Изменённые исходники шага 2 (в GitHub до испытаний):**
+- `integrations/android-ingress/runtime-routes/policy.go`
+- `integrations/android-ingress/runtime-routes/policy_test.go`
+- `integrations/android-ingress/runtime-routes/policy_stream_test.go`
+- `integrations/android-ingress/runtime-routes/apply-to-acl-source.py`
+
+**Ограничения источников:** `SOURCE_HEAD` фиксирует commit GitHub с source-only overlay. Изолированная worktree остаётся на Git commit релиза v1.0.1 с локальными незакоммиченными наложенными файлами; её содержимое проверено нормализованным сравнением указанных файлов и тестами, **но отдельный Git commit этой worktree не создан**. Не утверждать, что реально работающие серверы обновлены.
+
+**Следующий утверждённый этап 3:** интеграция проверенного snapshot с 3x-ui inbound API, фактическим Xray и HTTPS discovery. Прежде чем вносить изменения: сверить актуальный HEAD, зарегистрированные контракты discovery/registrar и правила безопасного обновления. Не запускать и не менять работающие службы без отдельного согласованного внедрения.
