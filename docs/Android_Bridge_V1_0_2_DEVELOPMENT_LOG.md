@@ -179,3 +179,11 @@
 - **Безопасные ограничения:** решение не читает Xray JSON, не запускает Go, не создаёт сокеты и сертификаты, не использует `tcp_routes` или legacy Django/Flutter channels, не интерпретирует VPN протокол. `localListenerReady` — **только локальная готовность**, не TLS/H2/backend/Internet PASS.
 - **Статус:** `ROUTE_POLICY=IMPLEMENTED`, `ISOLATED_KOTLIN_UNIT=PASS_EXACT_GIT_BLOBS`; `ACTUAL_APP_SOURCE_INTEGRATION=NOT_RUN`, `ANDROID_GRADLE=NOT_RUN`, `DEVICE_E2E=NOT_RUN`, `SEVEN_OLD_HOME_SERVER_FILES_CLEANUP=NOT_DONE`. Рабочие службы и исходники Android-приложения **не изменялись**.
 - **Блокер следующей интеграции:** текущее дерево `/opt/tervonvpndpi` и действующие call-sites не прочитаны; старый архив отменён оператором. Не зашивать архитектуру Android callbacks до подтверждения актуальных файлов. Нельзя отмечать весь M6 как готовый.
+
+### Запись 009 — Точное время создания первого кода и записей
+
+Источник — GitHub `fetch_commit.created_at`, UTC и Новосибирск UTC+7:
+- Код + точные unit-файлы: `29375777562f8e54f1d78f9dfbacb0d8e6c1bcb3`, **2026-11-22 11:42:05Z / 18:42:05 (+07)**.
+- DEVELOPMENT_LOG запись 008: `49eddf43aa14858fc1d10fed7c09d31a995ed7a1`, **11:42:31Z / 18:42:31 (+07)**.
+- DEVELOPMENT_JOB запись JOB-005: `6f149f1c40d4621a13e4dfe7fc1adc5e2d01da02`, **11:42:44Z / 18:42:44 (+07)**.
+- Отдельная локальная метка начала/конца unit теста не собиралась, поэтому `TEST_EXECUTION_TIME=NOT_MEASURED`; времена Git commit не выдавать за точное время самого теста.
