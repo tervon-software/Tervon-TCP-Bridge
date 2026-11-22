@@ -51,3 +51,38 @@ func TestReconcileInboundsRejectMismatchAndAmbiguity(t *testing.T){
   if !tc.wantErr&&len(got)!=tc.count{t.Fatalf("unexpected routes %+v",got)}
  })}
 }
+
+func TestReconcileInboundsVerifiedXrayTransportAliases(t *testing.T) {
+ cases:=[]struct{name,panelNetwork,liveNetwork string;want int}{
+  {"xhttp-to-splithttp","xhttp","splithttp",1},
+  {"splithttp-to-xhttp","splithttp","xhttp",1},
+  {"raw-to-tcp","raw","tcp",1},
+  {"tcp-to-raw","tcp","raw",1},
+  {"case-insensitive","XHTTP","SplitHTTP",1},
+  {"different-transports","ws","xhttp",0},
+  {"unknown-transports","quic","quic",0},
+  {"unknown-vs-tcp","newtransport","tcp",0},
+ }
+ for _,tc:=range cases{t.Run(tc.name,func(t *testing.T){
+  panel:=[]PanelInbound{{Port:44443,Protocol:"vless",Network:tc.panelNetwork,Enabled:true}}
+  live:=[]EffectiveInbound{{Port:44443,Protocol:"vless",Network:tc.liveNetwork,Service:"candidate",Address:"127.0.0.1:44443"}}
+  got,err:=ReconcileInbounds(panel,live)
+  if err!=nil{t.Fatal(err)}
+  if len(got)!=tc.want{t.Fatalf("got %d routes, want %d",len(got),tc.want)}
+ })}
+}
+
+func TestReconcileInboundsAliasDoesNotAuthorizeUnselectedBackend(t *testing.T) {
+ panel:=[]PanelInbound{
+  {Port:44443,Protocol:"vless",Network:"xhttp",Enabled:true},
+  {Port:44444,Protocol:"trojan",Network:"tcp",Enabled:false},
+ }
+ live:=[]EffectiveInbound{
+  {Port:44443,Protocol:"vless",Network:"splithttp",Service:"selected",Address:"127.0.0.1:44443"},
+  {Port:44444,Protocol:"trojan",Network:"raw",Service:"disabled",Address:"127.0.0.1:44444"},
+  {Port:44445,Protocol:"socks",Network:"tcp",Service:"unselected",Address:"127.0.0.1:44445"},
+ }
+ got,err:=ReconcileInbounds(panel,live)
+ if err!=nil{t.Fatal(err)}
+ if len(got)!=1||got[0].Service!="selected"{t.Fatalf("unexpected route selection: %+v",got)}
+}
