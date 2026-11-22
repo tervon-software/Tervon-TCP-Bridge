@@ -1,6 +1,9 @@
-# M6 approved Option 2 — ONLY override the Android-facing Bridge image.
+# M6 Android-facing Bridge: pin verified Linux v1.0.2 runtime image.
 # Combine with ../compose.yaml in the existing android-ingress Compose project.
-# Do not change the original image tag, 3x-ui, Xray, or RU/FI Bridge.
+# Preserve the existing production bind 0.0.0.0:18443; do not change Xray, 3x-ui, or RU/FI Bridge.
+# Pre-existing image tervon-bridge-android-ingress:m6-runtime-acl remains available for rollback.
 services:
   android-bridge-decapsulator:
-    image: tervon-bridge-android-ingress:m6-runtime-acl
+    image: tervon-bridge-android-ingress:v1.0.2
+    ports:
+      - "0.0.0.0:18443:8443/tcp"
