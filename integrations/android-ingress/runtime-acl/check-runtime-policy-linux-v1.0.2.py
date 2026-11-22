@@ -169,9 +169,12 @@ def test():
                 ensure(lines(logpath).count(success_marker) == 1, "STATIC_CONFIG_WAS_ACKNOWLEDGED")
                 print("NON_POLICY_CHANGE_REJECTED=PASS", flush=True)
 
+                invalid_config_marker = "M6_POLICY_RELOAD=FAIL invalid config"
+                previously_invalid = lines(logpath).count(invalid_config_marker)
                 cfgfile.write_text("{", encoding="utf-8")
                 process.send_signal(signal.SIGHUP)
-                await_marker(logpath, "M6_POLICY_RELOAD=FAIL invalid config", process)
+                await_marker(logpath, invalid_config_marker, process,
+                             previous=previously_invalid)
                 ensure(lines(logpath).count(success_marker) == 1, "MALFORMED_CONFIG_WAS_ACKNOWLEDGED")
                 print("MALFORMED_CONFIG_REJECTED=PASS", flush=True)
 
