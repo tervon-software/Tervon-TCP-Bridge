@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"net"
+	"strconv"
 	"sync/atomic"
 )
 
@@ -35,7 +36,8 @@ func validatedPolicy(authorized map[string][]string, routes map[string][]Backend
 				return nil, errors.New("empty backend address")
 			}
 			host, port, err := net.SplitHostPort(backend.Address)
-			if err != nil || host == "" || port == "" {
+			n, parseErr := strconv.Atoi(port)
+			if err != nil || host == "" || parseErr != nil || n < 1 || n > 65535 {
 				return nil, errors.New("invalid backend address")
 			}
 			// The trusted control-plane adapter must validate the endpoint
