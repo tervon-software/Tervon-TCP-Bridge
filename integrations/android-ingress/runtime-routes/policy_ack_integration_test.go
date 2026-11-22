@@ -59,10 +59,14 @@ func TestV102RealProcessSIGHUPPolicyGenerationACK(t *testing.T){
  address:=ln.Addr().String()
  ln.Close()
  configPath:=filepath.Join(dir,"server.json")
- routesA:=map[string][]map[string]string{"vpn":{{"Name":"initial","Address":"127.0.0.1:11111"}}}
- routesB:=map[string][]map[string]string{"vpn":{{"Name":"replaced","Address":"127.0.0.1:22222"}}}
+ // The core decodes backend objects into bridge.Backend structs and
+ // re-encodes fields in Name,Address order; maps would sort keys as
+ // Address,Name and calculate a different SHA-256 despite equal values.
+ type ackBackend struct{Name,Address string}
+ routesA:=map[string][]ackBackend{"vpn":{{Name:"initial",Address:"127.0.0.1:11111"}}}
+ routesB:=map[string][]ackBackend{"vpn":{{Name:"replaced",Address:"127.0.0.1:22222"}}}
  auth:=map[string][]string{strings.Repeat("a",64):{"vpn"}}
- makeConfig:=func(routes map[string][]map[string]string,streams int)map[string]any{
+ makeConfig:=func(routes map[string][]ackBackend,streams int)map[string]any{
   return map[string]any{"mode":"server","listen":address,"cert_file":certPath,"key_file":keyPath,
    "ca_file":caPath,"max_streams":streams,"routes":routes,"authorized":auth}
  }
@@ -74,10 +78,10 @@ func TestV102RealProcessSIGHUPPolicyGenerationACK(t *testing.T){
   if err:=os.WriteFile(temp,data,0600);err!=nil{t.Fatal(err)}
   if err:=os.Rename(temp,configPath);err!=nil{t.Fatal(err)}
  }
- digest:=func(routes map[string][]map[string]string)string{
+ digest:=func(routes map[string][]ackBackend)string{
   t.Helper()
   data,err:=json.Marshal(struct{
-   Routes map[string][]map[string]string `json:"routes"`
+   Routes map[string][]ackBackend `json:"routes"`
    Authorized map[string][]string `json:"authorized"`
   }{routes,auth})
   if err!=nil{t.Fatal(err)}
