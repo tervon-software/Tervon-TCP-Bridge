@@ -365,3 +365,18 @@ go vet ./...
 **Неразрешённые входные данные:** каким способом на конкретной ноде подтверждается применённая Xray конфигурация (достоверный runtime API, источник применённого конфигурационного поколения или безопасная проверка фактических listener/process), и каким механизмом кандидат ядра v1.0.2 подтверждает уже применённое поколение перед отдачей discovery. Только сравнение с файлом и подтверждение старого `M6_ACL_RELOAD` недостаточны.
 
 **Статусы:** `LIVE_XRAY_PROOF=BLOCKED_PENDING_READ_ONLY_EVIDENCE`; `V102_ROUTE_ACK=NOT_IMPLEMENTED`; `DISCOVERY_ACK_SYNC=NOT_IMPLEMENTED`; `STAGE3=IN_PROGRESS`. До получения данных новые исходники для live-публикации не создавать и действующий Docker не менять. Следующий точечный read-only шаг — посмотреть фактические командные строки Xray/связанный конфиг и открытые TCP-listener, без вывода ключей или содержимого конфигов, без повторных Go-тестов. После этого подготовить согласованную схему runtime-валидатора.
+
+## 2026-11-22 — Этап 3: read-only обследование реально слушающих Xray портов Homeserver
+
+**Источник:** точный текст терминальной диагностики Homeserver, предоставленный оператором. Измерение состояния носит точечный характер (снимок, не непрерывный monitoring).
+
+- `pgrep -x xray`: без вывода. Причина согласуется с тем, что исполняемый процесс по `ss` имеет другое имя (`xray-linux-amd6`), а не точное `xray`. Это не доказательство отсутствия Xray.
+- `ss -H -lntp` отобразил TCP LISTEN процесса `xray-linux-amd6`, `pid=1253673`: `*:55535`, `*:55636`, `*:30000`; loopback `127.0.0.1:10811`, `127.0.0.1:11111`, `127.0.0.1:54321` (два FD на последнем). `xray-exporter`, pid 3977 слушает `*:9550`, НЕ считать exporter VPN inbound.
+- По предыдущему read-only API snapshot панели: `55535` — VLESS TCP, `55636` — VLESS XHTTP, `30000` — Trojan TCP **по конфигурации панели**, но `ss` не раскрывает VPN-протокол; нельзя приравнивать порт к протоколу без дополнительной сверки конфигурации.
+- `systemctl show x-ui`: `ActiveState=active`, `SubState=running`, `MainPID=2091`. PID x-ui отличается от PID Xray, ожидаемо для панели, запускающей дочерний процесс, но фактическая связь parent-child ещё не проверялась.
+- `docker ps --filter name=android-ingress`: `android-ingress-android-bridge-decapsulator-1`, image `tervon-bridge-android-ingress:m6-runtime-acl`, status `Up 14 hours`. Это действующий **старый ACL-only** runtime, а не кандидат v1.0.2.
+- Команда закончилась `READ_ONLY_CHECK=COMPLETE` и `SSH_CONSOLE=OPEN`; не запускала контейнеры, не изменяла конфигураций и не компилировала Android.
+
+**Вывод и границы:** `XRAY_LISTENER_PRESENT=YES` для трёх портов; `XRAY_PROTOCOL_APPLIED=NOT_CONFIRMED_BY_SS`; `DOCKER_TO_XRAY_BACKEND_REACHABLE=NOT_TESTED`; `VPN_DATA_TRANSFER=NOT_TESTED`; `V102_ROUTING_ACK=NOT_IMPLEMENTED`. Исходная жалоба на отсутствие интернета/ошибку VLESS TCP остаётся открытой. Отсутствие точного `pgrep -x xray` объясняет отсутствие информации в блоках PID/exe, а не отсутствие работающего Xray.
+
+**Следующее действие (только read-only):** установить фактическую сеть существующего Bridge Docker и текущие backend endpoints **из разрешённых маршрутов Bridge**, затем отдельно оценить TCP-доступность backend без смены Docker/Xray/X-ui/Android. Не выводить полный `server.json`, ключи, токены или конфиги Xray. Текущий PID и порты — snapshot, не hardcode для программного компонента. `STEP3=IN_PROGRESS`, `RELEASE=NO`.
