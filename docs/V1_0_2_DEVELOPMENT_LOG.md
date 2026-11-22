@@ -240,3 +240,28 @@ go vet ./...
 **Техническое решение для этапа 3:** при подключении Remnawave необходимо сначала прочитать **конкретную ноду**, установить назначенный ей профиль и активные inbound, затем сопоставить их с effective Xray; только после атомарного подтверждения ядром публиковать соответствующие маршруты через discovery. `NODE_PROFILE_MAPPING=DESIGN_CONFIRMED`; `NODE_JSON_SCHEMA=NOT_VALIDATED`; `API_ADAPTER_IMPLEMENTATION=NOT_DONE`; `PRODUCTION=UNCHANGED`.
 
 **Операционные ограничения:** никаких запросов к приватной панели, изменений API токенов, контейнеров, действующих VPN сервисов или Android не выполнялось. Эта запись — продолжение обязательного педантичного журнала, а не PASS Remnawave.
+
+## 2026-11-22 — Этап 3: Remnawave read-only Node/Profile API-адаптер
+
+**GitHub HEAD перед работой:** `84a6a31e6fbccc1731b867508d820307eedf16c6`, ветка `work/m6-android-ingress`. Никаких изменений состояния пользователя/серверных служб в данной операции не выполнялось.
+
+**Сверена схема официального Remnawave Python SDK (ветка `production`):**
+- `remnawave/models/nodes.py`: `NodeResponseDto.configProfile`, `activeConfigProfileUuid`, `activeInbounds` — список `InboundsDto`, а `isDisabled` — явный признак отключения Node.
+- `remnawave/models/internal_squads.py`: `InboundsDto.uuid`, `profileUuid`, `port`, `type`, `network`.
+- `remnawave/models/config_profiles.py`: `InboundDto.uuid`, `profileUuid`, `port`, `type`, `network`, `rawInbound`.
+- `remnawave/controllers/nodes.py`: GET `/nodes/{uuid}`; `remnawave/controllers/config_profiles.py`: GET `/config-profiles/{uuid}/inbounds`. Префикс HTTP API — `/api`. Источник: публичный GitHub API `remnawave/python-sdk`, `production` на 2026-11-22.
+- Контракт API-ответов предполагает оболочку `response`. Подтверждение фактической версии конкретного сервера остаётся `PENDING`.
+
+**Новые файлы:**
+- `integrations/android-ingress/xui/remnawave.go`: read-only `RemnawaveClient` и `SelectedNodeInbounds(ctx,nodeUUID)`. Через HTTPS + Bearer читает конкретную Node, проверяет UUID, отключение, назначенный Config Profile, затем список inbound этого профиля; выбирает **только** UUID в `activeInbounds`. Некорректные/изменившиеся/дублированные UUID, порт, тип, transport приводят к явному отказу. Не включает inbound из других профилей или неактивные. Ошибки безопасные: не раскрываются токен и приватный адрес API. Ключ хранится в отдельном файле и не копируется в GitHub.
+- `integrations/android-ingress/xui/remnawave_test.go`: HTTPS mock, активный/неактивный inbound, disabled node, отсутствие профиля, неверный UUID, изменённый порт, ошибочный JSON ответ и отсутствие токена в ошибках.
+
+**Точные commits:** `be8807e81eca43dc8bf14e4514813143c23d77d2` (adapter), `5397e0c3a2fc982b430d8a9ece1839ef97787968` (tests).
+
+**Тесты и доказательная граница:** изолированный прототип адаптера до переноса в GitHub проверен локально с Go 1.23.2 на mock HTTPS: `go test -race -count=1 ./...` → `ok example.com/check 1.108s`; `go vet ./...` → 0. Исполнялся эквивалентный исходник с временным `PanelInbound` stub и лимитом; это **не** проверка полного Go-модуля GitHub и **не** E2E Remnawave. Проверка вновь опубликованного кода на Homeserver ещё НЕ выполнена; прошлый stage 3 PASS на `a99bc49...` не переносится.
+
+**Ограничения:** API-адаптер возвращает `PanelInbound`, НЕ создаёт `VerifiedRoute` без `ReconcileInbounds`, НЕ обновляет ядро и discovery; отсутствует подтверждение фактически применённой Xray-конфигурации. Возможна смена выбранного профиля между двумя GET, так что перед публикацией нужен контроль неизменности generation/повторная верификация Node. Не замещать этим чтением проверку реального Xray. Вариант Remnawave каскада не запрещает установку Decapsulator на другие Node.
+
+**Статус:** `REMNAWAVE_API_ADAPTER=SOURCE_COMMITTED`, `MOCK_TEST_ISOLATED=PASS`, `GITHUB_MODULE_TEST=PENDING`, `LIVE_REMNAWAVE_API=NOT_TESTED`, `CORE_RUNTIME_ACK=NOT_CONNECTED`, `DISCOVERY_GENERATION=NOT_CONNECTED`, `STAGE3=IN_PROGRESS`, `v1.0.2=NOT_RELEASED`.
+
+**Следующий шаг:** запуск на Homeserver Go test/race/vet с точным HEAD и сопоставление результатов с мок-контрактом. Не выполнять деплой, не вызывать приватную Remnawave панель, не трогать Docker/Xray/Android.
