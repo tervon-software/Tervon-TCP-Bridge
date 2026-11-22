@@ -198,3 +198,12 @@
 - **Actual:** compile script PASS, read-only target SHA PASS; unit **4/4 PASS** (`test_read_only_preflight`, `test_apply_only_two_files`, `test_guard_prevents_any_partial_write`, `test_second_apply_refuses_new_unrecognized_source`). Новые SHA в тестовой копии: `BridgeVpnSession.kt=6b8cfc1fc4f0cdb912be5485f21ba2a9364796dcaf6793bcdf785aa4b3032004`, `BridgeRuntimeControl.kt=79b3d3a1cc4ba1725523f40c0fc32458efc420b9072f0add98f02f46e9cb375f`.
 - **Limit:** это проверки патчера на локальном source snapshot, а не Kotlin/Gradle compile или Android device tests. `APP_PATCH_APPLIED=NO`, `KOTLIN_COMPILE=NOT_RUN`, `DEVICE_E2E=NOT_RUN`, `SERVICE_BINDING_NOT_VERIFIED`. Исполняемая часть Android на Homeserver не затронута. Каталог `/mnt/data` локален только этой беседе; пользователь должен явно перенести артефакт на Homeserver перед применением.
 - **Status:** `SOURCE_PATCH_CANDIDATE=PREPARED`; `PATCH_LOCAL_TEST=PASS_4_OF_4`; `ANDROID_IMPL=NOT_APPLIED`; `ANDROID_FUNCTIONAL=NOT_PASS`.
+
+### JOB-014 — проверка текущих двух Kotlin файлов и release Kotlin compile (оператор Homeserver)
+
+- **Контрольный вопрос:** совпадает ли содержимое двух целевых Kotlin-файлов с локально проверенным patch-кандидатом и компилируется ли Kotlin модуль без выпуска APK?
+- **Команда проверки:** `sha256sum -c -` для двух файлов, затем в `/opt/tervonvpndpi/android` команда `bash ./gradlew :app:compileReleaseKotlin --offline --no-daemon`.
+- **Ожидаемое:** обе SHA256 совпадают, Gradle exit code 0, сборка не устанавливает APK и не затрагивает сервер.
+- **Фактически предоставлено оператором:** `M6_PATCHED_SOURCES=PASS`; `BUILD SUCCESSFUL in 19s`; `72 actionable tasks: 5 executed, 67 up-to-date`; `KOTLIN_COMPILE=PASS`; `ANDROID_E2E=NOT_TESTED`; `SERVER_SERVICES=UNTOUCHED`; `COMMAND_EXIT_CODE=0`; `SSH_CONSOLE=OPEN`. Точная дата/время выполнения команды по серверным часам и новый Git HEAD приложения не представлены. Две целевые SHA256: `6b8cfc1fc4f0cdb912be5485f21ba2a9364796dcaf6793bcdf785aa4b3032004` и `79b3d3a1cc4ba1725523f40c0fc32458efc420b9072f0add98f02f46e9cb375f`.
+- **Примечание:** предыдущий dry-run патчера заблокирован потому, что первый Kotlin файл уже имел целевой SHA. Не утверждать, что исправление было применено последней командой; проверено соответствие текущего состояния.
+- **Итог:** `SOURCE_HASH_CHECK=PASS`, `KOTLIN_COMPILE=PASS`; `DEVICE_TCP_E2E=NOT_RUN`, `APK_BUILD=NOT_RUN`, `GO_TRANSPORT_INTEGRATION=NOT_CONFIRMED`, `RELEASE=NOT_READY`.
