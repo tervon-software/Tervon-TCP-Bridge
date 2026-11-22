@@ -265,3 +265,21 @@ go vet ./...
 **Статус:** `REMNAWAVE_API_ADAPTER=SOURCE_COMMITTED`, `MOCK_TEST_ISOLATED=PASS`, `GITHUB_MODULE_TEST=PENDING`, `LIVE_REMNAWAVE_API=NOT_TESTED`, `CORE_RUNTIME_ACK=NOT_CONNECTED`, `DISCOVERY_GENERATION=NOT_CONNECTED`, `STAGE3=IN_PROGRESS`, `v1.0.2=NOT_RELEASED`.
 
 **Следующий шаг:** запуск на Homeserver Go test/race/vet с точным HEAD и сопоставление результатов с мок-контрактом. Не выполнять деплой, не вызывать приватную Remnawave панель, не трогать Docker/Xray/Android.
+
+## 2026-11-22 — Этап 3: проверка Remnawave API-адаптера на Homeserver — PASS
+
+**Источник результата:** полный вывод команд от оператора Homeserver. **Ветка:** `work/m6-android-ingress`; `git pull --ff-only` выполнил `Fast-forward` `a99bc49..5b65aa1`. **Точный испытанный SOURCE_HEAD:** `5b65aa1affb68d6535091ef6c57a5fd129af657a`. Каталог Go-модуля: `integrations/android-ingress/xui`.
+
+| Испытание | Доказательство из вывода | Итог |
+| --- | --- | --- |
+| `go test -count=1 -v -run '^TestRemnawave' .` | `TestRemnawaveSelectedNodeFiltersInactive` PASS; `TestRemnawaveRejectsInconsistentNode` PASS с подкейсами disabled/unassigned/missing-selected-inbound/changed-port/malformed-profile; `TestRemnawaveDoesNotExposeAPISecret` PASS; `REMNAWAVE_RC=0` | **PASS** |
+| `go test -count=1 ./...` | все 6 packages `ok`; `TEST_RC=0` | **PASS** |
+| `go test -race -count=1 ./...` | все 6 packages `ok`; `RACE_RC=0` | **PASS** |
+| `go vet ./...` | без diagnostic messages; `VET_RC=0` | **PASS** |
+| Безопасность терминальной оболочки | `SSH_CONSOLE=OPEN` | **PASS** |
+
+**Область PASS:** read-only HTTPS-mock Remnawave Node → выбранный Config Profile → активные inbound, обработка негативных условий, компиляция/тесты/race/vet текущего Go-модуля на указанном HEAD. Код и mock подтвердили логику фильтрации, но **не** доступность пользовательской Remnawave панели, **не** реальный JSON её версии и **не** работающую динамическую маршрутизацию.
+
+**Не закрыто:** `REMNAWAVE_REAL_API=NOT_TESTED`, `NODE_TWO_GET_CONSISTENCY=NOT_IMPLEMENTED`, `EFFECTIVE_XRAY_CHECK=NOT_CONNECTED`, `CORE_POLICY_ACK=NOT_CONNECTED`, `DISCOVERY_GENERATION=NOT_CONNECTED`, `ANDROID_E2E=NOT_PASS`; `STAGE3=IN_PROGRESS`, `v1.0.2=NOT_RELEASED`. Операторская проверка не содержала деплоя/перезапуска; автономного аудита текущего состояния служб не проводилось.
+
+**Следующий шаг:** локально, только в исходниках, предотвратить гонку изменения Remnawave Node между чтением её профиля и чтением inbound (повторная проверка идентичности выбранной ноды, активного профиля и набора выбранных UUID). Добавить негативные HTTP mock-тесты именно этого случая, затем запросить полный Go test/race/vet на новом точном HEAD. Обновлять журнал на каждом изменении, не переносить текущий PASS на новый commit.
