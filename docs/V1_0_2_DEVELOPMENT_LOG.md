@@ -465,3 +465,20 @@ go vet ./...
 **Ограничения:** текущий код формирует только ожидаемый digest; он не доказывает ACK ядра, корректность live Xray, применённую конфигурацию или достижимость VPN. В рабочем Docker действует старый образ m6-runtime-acl. Имя нового Docker image, labels и порядок cutover не менялись. Реального Docker confirmation нет, API→core→discovery ещё не подключён.
 
 **Статусы:** POLICY_DIGEST_SOURCE=COMMITTED, POLICY_DIGEST_TEST=PENDING, REAL_CORE_ACK=NOT_CONNECTED, LIVE_XRAY_PROOF=NOT_COMPLETE, STAGE3=IN_PROGRESS, V102_RELEASE=NO. Следующая проверка на Homeserver: go test -count=1 -run '^TestPolicyGenerationDigest' -v ., go test -count=1 ./..., go test -race -count=1 ./..., go vet ./... на новом точном HEAD. Без PASS дальше не переходить; сервисы не затрагивать.
+
+## 2026-11-22 — Этап 3: Homeserver PASS расчёта PolicyGenerationDigest
+
+**Источник:** полный вывод команды Homeserver от оператора. **Точно испытанный SOURCE_HEAD:** `b124a7cf6bdbd6b0d314aceeea3b089254218e96`, ветка `work/m6-android-ingress`. Успешный `git pull --ff-only`, `Fast-forward a1f682f..b124a7c`; исходники `integrations/android-ingress/xui/policy_generation.go`, `policy_generation_test.go`. Запуск в subshell сохранил интерактивный SSH.
+
+**Подтверждённые проверки:**
+- `go test -count=1 -v -run '^TestPolicyGenerationDigest' .`: PASS `TestPolicyGenerationDigestMatchesCoreJSONContract`, PASS `TestPolicyGenerationDigestRejectsInvalidInput`; `DIGEST_RC=0`.
+- `go test -count=1 ./...`: 6 Go packages `ok`; `TEST_RC=0`.
+- `go test -race -count=1 ./...`: 6 Go packages `ok`; `RACE_RC=0`.
+- `go vet ./...`: диагностических сообщений нет; `VET_RC=0`.
+- `SSH_CONSOLE=OPEN`.
+
+**Итог в узкой области:** `POLICY_DIGEST_HELPER_TEST=PASS`, `GO_MODULE_TEST=PASS`, `GO_RACE=PASS`, `GO_VET=PASS` **только на проверенном commit**. Тест проверяет равенство SHA-256 с независимой моделью сериализации структур по формату исходника Go Bridge; не доказывает реальный SIGHUP, Docker ACK, операционную транзакцию или применённый runtime policy.
+
+**Не завершено:** `M6_POLICY_RELOAD_RUNTIME_ACK=NOT_TESTED`, `V102_DOCKER_CANDIDATE=NOT_DEPLOYED`, `API_TO_POLICY_SYNC=NOT_CONNECTED`, `XRAY_RUNTIME_PROOF=NOT_COMPLETE`, `DISCOVERY_LIVE=NOT_CONNECTED`, `ANDROID_E2E=NOT_PASS`, `STAGE3=IN_PROGRESS`, `RELEASE=NO`. Работающие службы в проверочной команде не изменялись.
+
+**Следующее утверждённое направление:** изолированная проверка настоящего `M6_POLICY_RELOAD=PASS` от ядра v1.0.2 и точного digest; не тестировать реальную смену конфигурации в производственном Docker и не менять текущую версию, образ или метки.
