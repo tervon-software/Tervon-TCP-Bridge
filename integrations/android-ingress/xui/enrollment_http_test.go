@@ -166,7 +166,7 @@ func TestDiscoveryV102OnlyAdvertisesAcknowledgedGeneration(t *testing.T){
   t.Fatal("failed ACK accepted")
  }
  status,resp=discover()
- if status!=http.StatusOK||resp.PolicyGeneration!=digest||resp.TCPRoutes["55535"]!="vpn-tcp"{
-  t.Fatalf("unconfirmed generation replaced acknowledged routes: %d %+v",status,resp)
+ if status!=http.StatusServiceUnavailable{
+  t.Fatalf("ambiguous core ACK must disable discovery: %d %+v",status,resp)
  }
 }
