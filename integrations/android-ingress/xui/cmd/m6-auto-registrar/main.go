@@ -164,11 +164,8 @@ func main() {
             HostConfigDirectory:filepath.Join(root,"config"),
         }.Confirm,
     }
-    // Fail closed until a trusted coordinator confirms a complete generation.
-    // This source-only registrar is NOT ready for deployment.
     enrollment := &xui.BridgeEnrollmentHTTP{
         RemoteURL:remote, ServerName:serverName, Service:service,
-        ConfirmedRoutes: new(xui.ConfirmedRouteStore),
         ClientCAPEM:clientCAPEM, ServerCAPEM:serverCAPEM, ClientCAKey:signer,
         Activate:func(fingerprint string) error {
             ctx,cancel := context.WithTimeout(context.Background(),15*time.Second)

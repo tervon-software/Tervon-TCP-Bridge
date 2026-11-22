@@ -223,3 +223,10 @@
 - **Оператор:** `:app:tasks --all` с `--offline --no-daemon --console=plain`; `find app/src/test app/src/androidTest`; `grep` Gradle build/plugins. `BUILD SUCCESSFUL in 15s`, `READ_ONLY_INSPECTION=COMPLETE`, `COMMAND_EXIT_CODE=0`.
 - **Наблюдение:** `testDebugUnitTest` существует, `testReleaseUnitTest` отсутствует. `ABSENT=app/src/test`; `ABSENT=app/src/androidTest`; `org.jetbrains.kotlin.android` plugin и `android.builtInKotlin=false` используются. Следовательно, запуск test task не обеспечит утверждённое функциональное покрытие Bridge.
 - **Результат:** `TEST_TASK_INVENTORY=PASS`, `BRIDGE_UNIT_TESTS=NOT_PRESENT`, `UNIT_TEST_EXECUTION=NOT_RUN`, `KOTLIN_COMPILE=PREVIOUS_PASS`, `DEVICE_TCP_E2E=NOT_RUN`, `SERVER_UNTOUCHED=YES`.
+### JOB-017 — устранение лишней зависимости HTTP Enrollment от маршрутизации
+
+- **Цель:** после команды оператора отменить самовольную проверку `ConfirmedRouteStore` перед GET Discovery и POST CSR. Не менять серверное ядро и его маршрутизацию.
+- **Parent HEAD:** `534272e307bde2fb46fa4f75438e672141a6ba77`, branch `work/m6-android-ingress`.
+- **Expected:** регистратор не создаёт пустой store; HTTP handler не требует route ACK; Discovery сообщает `remote_url`, `server_name`, `service`, CA; не содержит `tcp_routes`/`policy_generation`; POST CSR выдаёт сертификат только после успешного `Activate` (при отказе — 503); unsupported request assertions сохраняются.
+- **Кодовые проверки:** Go unit/race CI на точном изменённом commit. Функциональную работу с реальным сервером и выдачу устройства в этом job не заявлять.
+- **Службы:** не изменяются. `CODE_UPDATED=YES`, `CI=AWAITING_RESULT`, `ANDROID_E2E=NOT_RUN`.

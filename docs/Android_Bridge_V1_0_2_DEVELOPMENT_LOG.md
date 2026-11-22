@@ -338,3 +338,12 @@
 - **Настройки:** `com.android.application`, `org.jetbrains.kotlin.android`, `android.builtInKotlin=false`; предупреждения о будущей миграции Kotlin/AGP не требуют изменения текущей сборки в M6.
 - **Конкретный оставшийся риск:** Kotlin `BridgeVpnSession.kt` в двухфайловом кандидате получает `service` из доверенного Discovery; это ещё не доказывает точное соответствие сервиса backend выбранного TCP-профиля. Не компенсировать неизвестность новой Android таблицей или изменением серверного Bridge.
 - **HEAD документации до этой записи:** `70308154f1d9ea9f2da5a4547a18ac645e2fc565`. `GRADLE_TASK_DISCOVERY=PASS`, `ANDROID_UNIT_TEST_COVERAGE=ABSENT`, `KOTLIN_COMPILE=PREVIOUS_PASS`, `APK_BUILD=NOT_RUN`, `DEVICE_E2E=NOT_RUN`, `SERVER_SERVICES=UNTOUCHED`.
+
+### Запись 023 — исправление регрессии M6 Enrollment без изменения рабочего сервера
+
+- **Прямое указание пользователя:** «Убирай свои художества! Делай как согласовано!» — убрать самовольную зависимость регистрации Android от серверной маршрутизации; не вводить новые механизмы.
+- **Ветка/parent HEAD:** `work/m6-android-ingress` / `534272e307bde2fb46fa4f75438e672141a6ba77`. Область исходников: `xui/enrollment_http.go`, `xui/cmd/m6-auto-registrar/main.go`, `xui/enrollment_http_test.go`; документация.
+- **Убрано:** обязательный `ConfirmedRouteStore`, чтение `Snapshot()`/проверки поколения на GET Discovery и POST CSR; пустое `new(ConfirmedRouteStore)` в исполняемом регистраторе; публикация `policy_generation` из Discovery. `tcp_routes` не возвращался.
+- **Сохранено:** существующие HTTPS endpoint и TLS trust, получение сертификата по PKCS#10 CSR, проверка/ограничение размера CSR, активация клиентского отпечатка через существующий ACL callback до ответа 200, существующие проверочные отказные сценарии. `ConfirmedRouteStore` и серверный route-sync как самостоятельные серверные компоненты не удалены и не изменены.
+- **Новая проверка:** в unit-тестах GET Discovery и POST CSR проверяются без серверного route coordinator, отсутствие `tcp_routes` и `policy_generation` и успешный callback ACL. В CI проверять текущую ревизию; прежние PASS не означают готовность новой.
+- **Граница:** GitHub source only; действующий сервер, Docker, Xray, Bridge, Android-приложение и сертификаты не трогались. `ENROLLMENT_SOURCE_FIX=IMPLEMENTED`, `CI=AWAITING_RESULT`, `SERVER_DEPLOYMENT=NOT_RUN`, `DEVICE_E2E=NOT_RUN`.

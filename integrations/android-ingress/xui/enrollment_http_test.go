@@ -11,7 +11,6 @@ import (
     "strings"
     "testing"
     "time"
-    "context"
 )
 
 func TestBridgeEnrollmentHTTPDiscoveryAndCSR(t *testing.T) {
@@ -21,7 +20,7 @@ func TestBridgeEnrollmentHTTPDiscoveryAndCSR(t *testing.T) {
     h := &BridgeEnrollmentHTTP{
         RemoteURL:"https://chosen-from-server.example:18443/v2/stream",
         ServerName:"chosen-from-server.example",
-        Service:"vpn",ConfirmedRoutes:confirmedTestStore(t,"vpn"),ClientCAPEM:caPEM,ServerCAPEM:caPEM,ClientCAKey:caKey,
+        Service:"vpn",ClientCAPEM:caPEM,ServerCAPEM:caPEM,ClientCAKey:caKey,
         Now:func()time.Time{return now},
         Activate:func(fp string)error{fingerprint=fp;return nil},
     }
@@ -58,7 +57,7 @@ func TestBridgeEnrollmentHTTPRefusesUnsafeRequestsAndActivationFailures(t *testi
     csr,caPEM,caKey:=testCertificateInputs(t,now)
     base:=&BridgeEnrollmentHTTP{
         RemoteURL:"https://dynamic.example/v2/stream",ServerName:"dynamic.example",
-        Service:"vpn",ConfirmedRoutes:confirmedTestStore(t,"vpn"),ClientCAPEM:caPEM,ServerCAPEM:caPEM,ClientCAKey:caKey,
+        Service:"vpn",ClientCAPEM:caPEM,ServerCAPEM:caPEM,ClientCAKey:caKey,
         Activate:func(string)error{return io.ErrUnexpectedEOF},
     }
     h,err:=base.Handler();if err!=nil{t.Fatal(err)}
@@ -95,80 +94,31 @@ func TestBridgeEnrollmentHTTPRefusesUnsafeRequestsAndActivationFailures(t *testi
     if _,err:=badURL.Handler();err==nil{t.Fatal("insecure endpoint accepted")}
 }
 
-func confirmedTestStore(t *testing.T, service string) *ConfirmedRouteStore {
- t.Helper()
- s:=new(ConfirmedRouteStore)
- if err:=s.PublishAfterCoreACK(context.Background(),map[string]string{"443":service},strings.Repeat("a",64),func(context.Context,string)error{return nil});err!=nil{t.Fatal(err)}
- return s
-}
-
-func TestDiscoveryNoStaticRouteAndAmbiguousServiceFailsClosed(t *testing.T) {
- now:=time.Now().UTC().Truncate(time.Second)
- _,caPEM,caKey:=testCertificateInputs(t,now)
- h:=&BridgeEnrollmentHTTP{
-  RemoteURL:"https://bridge.example/v2/stream",ServerName:"bridge.example",
-  Service:"vpn",ConfirmedRoutes:confirmedTestStore(t,"vpn"),
-  ClientCAPEM:caPEM,ServerCAPEM:caPEM,ClientCAKey:caKey,
-  Activate:func(string)error{return nil},
- }
- handler,err:=h.Handler();if err!=nil{t.Fatal(err)}
- w:=httptest.NewRecorder()
- handler.ServeHTTP(w,httptest.NewRequest(http.MethodGet,"https://sub.example/.well-known/tervon-bridge",nil))
- if w.Code!=http.StatusOK{t.Fatalf("confirmed discovery: %d",w.Code)}
- var v map[string]any
- if err:=json.Unmarshal(w.Body.Bytes(),&v);err!=nil{t.Fatal(err)}
- if _,ok:=v["tcp_routes"];ok{t.Fatal("removed legacy field still advertised")}
- if v["policy_generation"]!=strings.Repeat("a",64){t.Fatal("incorrect generation")}
- noStore:=*h;noStore.ConfirmedRoutes=nil
- if _,err:=noStore.Handler();err==nil{t.Fatal("nil confirmed store accepted")}
- multi:=new(ConfirmedRouteStore)
- if err:=multi.PublishAfterCoreACK(context.Background(),map[string]string{"443":"vpn","8443":"another"},strings.Repeat("b",64),func(context.Context,string)error{return nil});err!=nil{t.Fatal(err)}
- ambiguous:=*h;ambiguous.ConfirmedRoutes=multi
- handler,err=ambiguous.Handler();if err!=nil{t.Fatal(err)}
- for _,method:=range []string{http.MethodGet,http.MethodPost}{
-  w=httptest.NewRecorder()
-  req:=httptest.NewRequest(method,"https://sub.example/.well-known/tervon-bridge",nil)
-  handler.ServeHTTP(w,req)
-  if w.Code!=http.StatusServiceUnavailable{t.Fatalf("ambiguous %s accepted %d",method,w.Code)}
- }
-}
-
-func TestDiscoveryV102OnlyAdvertisesAcknowledgedGeneration(t *testing.T){
- now:=time.Now().UTC().Truncate(time.Second)
- _,caPEM,caKey:=testCertificateInputs(t,now)
- store:=new(ConfirmedRouteStore)
- h:=&BridgeEnrollmentHTTP{
-  RemoteURL:"https://bridge.example/v2/stream",ServerName:"bridge.example",
-  Service:"vpn-tcp",
-  ConfirmedRoutes:store,ClientCAPEM:caPEM,ServerCAPEM:caPEM,
-  ClientCAKey:caKey,Activate:func(string)error{return nil},
- }
- handler,err:=h.Handler()
- if err!=nil{t.Fatal(err)}
- discover:=func()(int,bridgeDiscoveryResponse){
-  w:=httptest.NewRecorder()
-  handler.ServeHTTP(w,httptest.NewRequest(http.MethodGet,"https://sub.example/.well-known/tervon-bridge",nil))
-  var payload bridgeDiscoveryResponse
-  if w.Code==http.StatusOK{
-   if err:=json.Unmarshal(w.Body.Bytes(),&payload);err!=nil{t.Fatal(err)}
-  }
-  return w.Code,payload
- }
- if code,_:=discover();code!=http.StatusServiceUnavailable{t.Fatalf("unconfirmed routes advertised: %d",code)}
- digest:=strings.Repeat("a",64)
- if err:=store.PublishAfterCoreACK(context.Background(),map[string]string{"55535":"vpn-tcp"},digest,func(_ context.Context,got string)error{
-  if got!=digest{t.Fatal("wrong digest")}
-  return nil
- });err!=nil{t.Fatal(err)}
- status,resp:=discover()
- if status!=http.StatusOK||resp.PolicyGeneration!=digest||resp.Service!="vpn-tcp"{
-  t.Fatalf("confirmed generation not advertised: %d %+v",status,resp)
- }
- if err:=store.PublishAfterCoreACK(context.Background(),map[string]string{"55636":"xhttp"},strings.Repeat("b",64),func(context.Context,string)error{return io.ErrUnexpectedEOF});err==nil{
-  t.Fatal("failed ACK accepted")
- }
- status,resp=discover()
- if status!=http.StatusServiceUnavailable{
-  t.Fatalf("ambiguous core ACK must disable discovery: %d %+v",status,resp)
- }
+func TestBridgeEnrollmentHTTPWithoutServerRouteCoordination(t *testing.T) {
+    now := time.Now().UTC().Truncate(time.Second)
+    csr, caPEM, caKey := testCertificateInputs(t, now)
+    activations := 0
+    h := &BridgeEnrollmentHTTP{
+        RemoteURL:"https://bridge.example/v2/stream",
+        ServerName:"bridge.example",Service:"vpn",
+        ClientCAPEM:caPEM,ServerCAPEM:caPEM,ClientCAKey:caKey,
+        Activate:func(string)error{activations++;return nil},
+    }
+    handler, err := h.Handler()
+    if err != nil { t.Fatal(err) }
+    discovery := httptest.NewRecorder()
+    handler.ServeHTTP(discovery,httptest.NewRequest(http.MethodGet,"https://sub.example/.well-known/tervon-bridge",nil))
+    if discovery.Code != http.StatusOK { t.Fatalf("Discovery failed without routing coordination: %d",discovery.Code) }
+    var result map[string]any
+    if err := json.Unmarshal(discovery.Body.Bytes(), &result); err != nil { t.Fatal(err) }
+    if result["service"] != "vpn" { t.Fatalf("configured Bridge service missing: %v",result) }
+    if _,present := result["tcp_routes"]; present { t.Fatal("legacy routes leaked into Discovery") }
+    if _,present := result["policy_generation"]; present { t.Fatal("server policy leaked into Discovery") }
+    if activations != 0 { t.Fatal("GET must not activate ACL") }
+    request := httptest.NewRequest(http.MethodPost,"https://sub.example/.well-known/tervon-bridge",bytes.NewReader(csr))
+    request.Header.Set("Content-Type","application/pkcs10")
+    enrolled := httptest.NewRecorder()
+    handler.ServeHTTP(enrolled,request)
+    if enrolled.Code != http.StatusOK { t.Fatalf("CSR enrollment failed: %d %s",enrolled.Code,enrolled.Body.String()) }
+    if activations != 1 { t.Fatalf("ACL activation count %d",activations) }
 }
