@@ -81,3 +81,26 @@ go vet ./...
 **Отсутствие затрагивания служб:** тестовая команда не содержит изменения Docker/Xray; операторский итог `DOCKER_CHANGED=NO`, `XRAY_CHANGED=NO`. Подтверждения состава/состояния других служб этот прогон не предоставляет.
 
 **Критерий закрытия Шага 1:** код + позитивные и негативные тесты + Go test/race/vet PASS на идентифицированном commit + документирование в GitHub. **Шаг 1 закрывается после commit настоящей записи.** Следующий согласованный шаг: **Шаг 2 — атомарная runtime-таблица маршрутов для новых соединений**. Перед изменениями проверить точный Go release v1.0.1 и ACL overlay, сохранить контроль отсутствия изменений в действующем Docker. Требования к диагностике: соединение есть/нет, фактический этап и проверяемая причина; подробные сквозные проверки относятся к отдельному утверждённому этапу.
+
+## 2026-11-22 — Шаг 2. Изолированный кандидат атомарных ACL+routes
+
+**Статус: `SOURCE_COMMITTED`, `GO_TEST=PENDING`, `GO_RACE=PENDING`, `GO_VET=PENDING`, `LIVE_DEPLOY=NO`, `ROUTE_SYNC_API=NOT_IMPLEMENTED`.** Этап 2 до подтверждённого PASS не закрыт.
+
+**Основание:** в релизном `prototype/bridge.go` commit `96c136702d10b6fb9a16aa2893f6b978e8b14e86` `Server.Routes` неизменяем в процессе, а M6 `runtime-acl/acl_snapshot.go` держит только ACL. `runtime-acl/apply-to-release-source.py` отклоняет любые изменения `routes` при SIGHUP. Простая подмена map недопустима: новые потоки могут увидеть несогласованные разрешения и backends.
+
+**Созданные исходники:**
+- `integrations/android-ingress/runtime-routes/policy.go` — новый `RuntimePolicy` с `atomic.Pointer`, проверкой ACL+routes и глубокой копией списка backend. `Select` читает один снимок и возвращает связанную пару «право + список backend». `Replace` отклоняет некорректный кандидат, не изменяя предыдущую карту. Порты проходят проверку диапазона 1–65535; это **не** замена проверке соответствия действующему Xray.
+- `integrations/android-ingress/runtime-routes/policy_test.go` — изменение/добавление/удаление сервисов, rollback на ошибке, конкурентное чтение при заменах, отсутствие alias входных структур.
+- `integrations/android-ingress/runtime-routes/policy_stream_test.go` — E2E-кандидат mTLS HTTP/2 → Go Bridge → две локальные TCP echo backend: существующий поток обязан остаться на backend A, новый после `Replace` должен попасть на B.
+- `integrations/android-ingress/runtime-routes/apply-to-acl-source.py` — **source-only** overlay поверх отдельного изолированного дерева релизных v1.0.1 исходников, в которое предварительно применён уже существующий `runtime-acl/apply-to-release-source.py`. Изменяет `prototype/bridge.go` и `cmd/bridge/main.go`, добавляет два `policy*.go` тестовых файла и `policy.go`. Для потоков v1.0.2 используется `RouteLookup`/атомарный policy; старый путь `Routes`/`AuthorizationLookup` остаётся для совместимости. SIGHUP позволяет менять только `authorized` и `routes` (все прочие поля конфигурации обязаны совпадать); публикует `M6_POLICY_RELOAD=PASS digest=...` после применения целого снимка.
+
+**Точные commits исходного пакета:** `a9104d2e65698a1818040366d861391cb901d49e` (`policy.go`), `2492358f0e5ecf8273f8991950bbc2ed245ebfca` (`policy_test.go`), `2b3c70d21687de24ac7e22f3d8ef61e2a4af3354` (overlay), `cdbf1199d53ad0b9ad73ffe6c2ded2d0dd61c382` (валидация порта), `94e90545f01f1bae9faf9c1ff1a6a02828c49258` (live-stream test).
+
+**Безопасность/ограничения:**
+- В действующий Docker образ, `server.json`, Xray, Nginx, регистратор, Android или Linux RU↔FI Bridge изменения **не** вносились.
+- Важный следующий шаг — проверить Go-совместимость с чистым релизом, race, vet, фактические h2/mTLS тесты **на конкретном HEAD**; script `--check` перед `--apply`. Тестовый исходник не означает работающий продукт.
+- Регистратор и Docker confirmer пока рассчитаны на `M6_ACL_RELOAD` и старую метку образа; **их нельзя направлять на кандидат v1.0.2, пока не будет согласованной и протестированной интеграции**.
+- Само чтение API 3x-ui (Шаг 1) не подключено к новому `RuntimePolicy`; синхронизация, выбор реального адреса backend и точное подтверждение активации маршрута — этап 3 и последующие проверки.
+- `M6_POLICY_RELOAD=PASS` — формат будущего подтверждения ядра; не заявлен как уже полученный.
+
+**Проверка на Homeserver (ещё не выполнена):** создать новую отдельную worktree на точном `96c1367...`, применить ACL overlay, затем candidate routes overlay, выполнить `gofmt`, `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...`, `go build ./cmd/bridge` с результатом build без изменений действующего бинарника. При сбое остановиться и исправить текущий этап; без PASS не переходить к следующему.
