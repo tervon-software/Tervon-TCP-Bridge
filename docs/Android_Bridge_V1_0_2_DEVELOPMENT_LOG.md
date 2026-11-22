@@ -121,3 +121,12 @@
 - **Оставить:** `prototype/`, `integrations/android-ingress/xui/`, `runtime-acl/`, `runtime-routes/`, `compose.yaml`, `config` server PKI/Go sources, действующие Linux релизы и оба новых журнала.
 - **ВАЖНО:** физические `Bridge*.kt` в `/opt/tervonvpndpi` **этим коммитом не очищаются** — приложение является отдельным исходным деревом Homeserver. Запрещено утверждать обратное.
 - **Результат и HEAD удаления:** устанавливаются отдельной проверкой опубликованного Git HEAD после атомарной операции; серверный E2E заново не тестировать.
+
+### Запись 004 — Результат атомарного удаления и GitHub post-verification
+
+- **Точный коммит:** `b4be0648674d86b41fe3a26706c3743d35f40505`.
+- **GitHub commit.created_at:** 2026-11-22 11:08:28 UTC = **18:08:28 Новосибирск**.
+- **Изменено в коммите:** 71 удалённый файл `integrations/android-ingress/stage4/` и два журнала; полный пофайловый манифест — Запись 003.
+- **Независимая post-commit проверка:** GitHub HEAD совпадает с этим SHA; рекурсивное дерево `truncated=false`, осталось 155 blob-файлов, `STAGE4_FILES_REMAINING=0`. Подтверждены сохранённые `prototype/bridge.go`, `xui/inbounds.go`, `xui/enrollment_http.go`, `runtime-acl/runtime_policy.go`, `runtime-routes/policy.go`, `compose.yaml` и оба новых журнала.
+- **Результат:** `GITHUB_OLD_ANDROID_STAGE4_REMOVAL=PASS`. **Это не тест Android APK.** Очищение семи файлов в проекте Homeserver `/opt/tervonvpndpi` — `NOT_DONE`: GitHub commit не изменяет другой рабочий каталог.
+- **Следующий шаг внутри M6:** очищение/замена ровно семи файлов Android-приложения с сохранением отдельно утверждённых внешних вызовов и без изменения активных служб. Для физического изменения нужен доступ к текущему рабочему дереву приложения; не утверждать выполнение без вывода с Homeserver.
