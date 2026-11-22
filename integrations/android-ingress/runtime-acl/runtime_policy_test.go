@@ -52,6 +52,28 @@ func TestM6FullPolicyReplaceAndRollback(t *testing.T) {
     }
 }
 
+func TestM6FullPolicyChangesRoutesAndAuthorizationTogether(t *testing.T) {
+    routes, acl, id := policyFixture()
+    p, err := NewRuntimePolicy(routes, acl)
+    if err != nil { t.Fatal(err) }
+    nextRoutes := map[string][]Backend{
+        "new-service": {{Name:"next", Address:"127.0.0.1:49001"}},
+    }
+    nextACL := map[string][]string{hex.EncodeToString(id[:]): {"new-service"}}
+    if _,err := p.Replace(nextRoutes,nextACL);err!=nil { t.Fatal(err) }
+    if old,ok := p.Lookup(id,"vpn");ok || len(old)>0 {
+        t.Fatal("old service survived full policy replacement")
+    }
+    if fresh,ok := p.Lookup(id,"new-service");!ok || len(fresh)!=1 || fresh[0].Address!="127.0.0.1:49001" {
+        t.Fatal("new ACL and new route not active in same generation")
+    }
+    before := p.Digest()
+    if _,err := p.Replace(nextRoutes,acl);err==nil {
+        t.Fatal("inconsistent routes/ACL pair incorrectly published")
+    }
+    if p.Digest()!=before { t.Fatal("rejected mixed policy advanced generation") }
+}
+
 func TestM6FullPolicyDigestMatchesCoordinatorContract(t *testing.T) {
     routes, acl, id := policyFixture()
     p, err := NewRuntimePolicy(routes, acl)
