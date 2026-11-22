@@ -37,46 +37,7 @@ type VerifiedRoute struct {
  Address string
 }
 
-var routeServicePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}package xui
-
-import (
- "errors"
- "fmt"
- "net"
- "regexp"
- "strconv"
- "strings"
-)
-
-// PanelInbound is a provider-neutral, redacted inbound projection.
-// For Remnawave the provider adapter MUST filter by the selected node's
-// assigned profile and active inbounds before calling ReconcileInbounds.
-type PanelInbound struct {
- Port int
- Protocol string
- Network string
- Enabled bool
-}
-
-// EffectiveInbound describes the effective node-local Xray listener.
-// It is independent of panel state and cannot be supplied by Android.
-type EffectiveInbound struct {
- Port int
- Protocol string
- Network string
- Service string // server-selected opaque Bridge service identifier
- Address string // verified backend address, not a client-provided target
-}
-
-// VerifiedRoute can be published only AFTER the exact route+ACL generation
-// has been acknowledged by the running Decapsulator.
-type VerifiedRoute struct {
- Port int
- Service string
- Address string
-}
-
-)
+var routeServicePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
 // canonicalInboundNetwork recognizes only the two verified Xray aliases.
 // Unknown networks remain unchanged and cannot become a supported TCP route.
