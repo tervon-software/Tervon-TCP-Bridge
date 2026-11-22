@@ -177,3 +177,14 @@
 - **Go CI:** GitHub push workflow `M6 3X-UI adapter tests`, run `45023624013`, команда `go test -race -count=1 ./...`; runtime source workflow `45023623991`. При создании записи `status=in_progress`, conclusion `UNKNOWN`. **Нельзя ставить PASS до подтверждённого run conclusion.**
 - **Ограничение:** `m6-auto-registrar` source после чистки без доверенного injected policy generation отказывается от discovery/enrollment. Изоляция хороша для удаления опасной старой выдачи, но **не годится для production cutover**. Нельзя объявлять «Android готов» и устанавливать регистратор, пока не закрыты source wiring и тесты реального full-policy ACK. Docker/live services и Android не менялись.
 - **Статус:** `LEGACY_REMOVAL=SOURCE_COMMITTED`; `CI=RUNNING`; `PRODUCTION_CUTOVER=NOT_RUN`; `ANDROID_E2E=NOT_RUN`.
+
+### JOB-012 — Финальный Go CI после source cleanup
+
+- **Цель:** исправить legacy route path, получить подтверждённый компилирующийся и протестированный source без изменения production.
+- **Источник/commit:** `work/m6-android-ingress`, последний code commit `1fa836c724a07717c81253c2d0479cd985312dad`. Обновление действующих инструкций: `1f9245cc3f374587e027fbb6b2bfa18a9b16b32a`.
+- **Попытка 1:** code commit `f5d70c...`, GitHub Actions `45023624013` — **FAIL**, ошибка синтаксиса `cmd/m6-auto-registrar/main.go:167,174`. Не считать source PASS. Исправлено commit `11518161d61c53401e3e2144336d975fce515820`.
+- **Итоговый код:** удалён deprecated `routes_test.go` и `configuredTCPRoutes`, удалено отдельное поле `tcp_routes` из HTTP response, `BridgeEnrollmentHTTP` требует `ConfirmedRouteStore`, при неточном/неподтверждённом выборе 503; добавлены unit negative cases, `services_test.go` не выводит ports из server.json. Сохранены доверенные существующие crypto/CSR helpers без нового алгоритма.
+- **Проверка 1:** GitHub Actions `M6 3X-UI adapter tests` `run_id=45023832666`, `head_sha=1fa836c...`, `go test -race -count=1 ./...`; **COMPLETED / SUCCESS = PASS**.
+- **Проверка 2:** GitHub Actions `M6 runtime ACL source check (released v1.0.1)` `run_id=45023832706`, `head_sha=1fa836c...`; **COMPLETED / SUCCESS = PASS**. Это источник-тест, не запуск реального серверного контейнера.
+- **Не выполнялось и не утверждается:** `PRODUCTION_REGISTRAR_DEPLOYMENT=NOT_RUN`, `LIVE_API_TO_RUNTIME_ACK=NOT_CONNECTED`, `ANDROID_CLIENT_COMPATIBILITY=NOT_TESTED`, `ANDROID_INTERNET=FAIL_HISTORICAL`. Нельзя развернуть текущую source-сборку регистратора без подтверждённого writer; она fail-closed с HTTP 503 и не поддерживает неоднозначный выбор сервиса.
+- **Результат текущей согласованной очистки:** `LEGACY_STATIC_SOURCE_REMOVAL=PASS`, `GO_MODULE_CI=PASS`, `RUNTIME_ACL_SOURCE_WORKFLOW=PASS`; `PRODUCTION_CUTOVER=NO`. Никаких новых live проверок без основания.
