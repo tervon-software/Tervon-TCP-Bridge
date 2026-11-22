@@ -25,6 +25,9 @@ def handler(port,protocol="vless",network="splithttp"):
 class TestRuntimeGRPCProjection(unittest.TestCase):
     def test_extract(self):
         self.assertEqual(extract([handler(55535)]),[("test-1",55535,"vless","splithttp")])
+    def test_internal_api_does_not_require_proxy_credentials(self):
+        self.assertEqual(extract([{"tag":"api"},handler(55535)]),
+                         [("api",0,"internal","internal"),("test-1",55535,"vless","splithttp")])
     def test_reject_range(self):
         bad=handler(55535)
         bad["receiverSettings"]["value"]=base64.b64encode(msg(1,msg(1,field(1,1000)+field(2,2000)))).decode()
