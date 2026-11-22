@@ -68,12 +68,18 @@ func buildPolicy(routes map[string][]Backend, authorized map[string][]string) (*
         }
         copiedACL[id] = serviceSet
     }
+    // Snapshot the ACL input as well before calculating the generation digest.
+    // A caller changing its input slices after publication cannot change it.
+    canonicalACL := make(map[string][]string, len(authorized))
+    for fingerprint, services := range authorized {
+        canonicalACL[fingerprint] = append([]string(nil), services...)
+    }
     // The coordinator hashes exactly this public JSON shape: routes then
     // authorized; Backend has exported Name and Address in that order.
     canonical := struct {
         Routes map[string][]Backend `json:"routes"`
         Authorized map[string][]string `json:"authorized"`
-    }{copiedRoutes, authorized}
+    }{copiedRoutes, canonicalACL}
     encoded, err := json.Marshal(canonical)
     if err != nil {
         return nil, errors.New("policy generation encoding failed")
