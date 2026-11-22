@@ -1,42 +1,65 @@
 #!/usr/bin/env python3
-import base64
+"""Fixtures matching Xray-core common/reflect/marshal.go custom JSON."""
 import unittest
-from check_xray_grpc_runtime import wire_fields, extract
+from check_xray_grpc_runtime import extract
 
-def v(n):
-    out=bytearray()
-    while n>127:
-        out.append(128|(n&127))
-        n >>= 7
-    out.append(n)
-    return bytes(out)
 
-def field(n,x):return v(n<<3)+v(x)
-def msg(n,data):return v((n<<3)|2)+v(len(data))+data
+def handler(port=55535, protocol="vless", network="splithttp", tag="test-1"):
+    return {
+        "tag": tag,
+        "receiverSettings": {
+            "_TypedMessage_": "xray.app.proxyman.ReceiverConfig",
+            "portList": port,
+            "streamSettings": {"protocolName": network},
+            "listen": "0.0.0.0",
+        },
+        "proxySettings": {
+            "_TypedMessage_": "xray.proxy." + protocol + ".inbound.Config",
+            "clients": [{"id": "secret-that-must-not-be-printed"}],
+        },
+    }
 
-def handler(port,protocol="vless",network="splithttp"):
-    ports=msg(1,field(1,port)+field(2,port))
-    recv=msg(1,ports)+msg(3,msg(5,network.encode()))
-    enc=lambda t,data:{"type":t,"value":base64.b64encode(data).decode()}
-    return {"tag":"test-1",
-      "receiverSettings":enc("xray.app.proxyman.ReceiverConfig",recv),
-      "proxySettings":enc("xray.proxy."+protocol+".inbound.Config",b"")}
 
 class TestRuntimeGRPCProjection(unittest.TestCase):
-    def test_extract(self):
-        self.assertEqual(extract([handler(55535)]),[("test-1",55535,"vless","splithttp")])
-    def test_internal_api_does_not_require_proxy_credentials(self):
-        self.assertEqual(extract([{"tag":"api"},handler(55535)]),
-                         [("api",0,"internal","internal"),("test-1",55535,"vless","splithttp")])
-    def test_reject_range(self):
-        bad=handler(55535)
-        bad["receiverSettings"]["value"]=base64.b64encode(msg(1,msg(1,field(1,1000)+field(2,2000)))).decode()
-        with self.assertRaises(ValueError):extract([bad])
-    def test_reject_duplicate_tag(self):
-        with self.assertRaises(ValueError):extract([handler(55535),handler(30000)])
-    def test_reject_invalid_wire_and_missing_fields(self):
-        with self.assertRaises(ValueError):wire_fields(b"\x0a\x7f")
-        with self.assertRaises(ValueError):extract([{"tag":"test-1"}])
+    def test_extract_custom_cli_json(self):
+        self.assertEqual(
+            extract([handler()]),
+            [("test-1", 55535, "vless", "splithttp")],
+        )
 
-if __name__=="__main__":
+    def test_internal_api_does_not_require_proxy_credentials(self):
+        self.assertEqual(
+            extract([{"tag": "api"}, handler()]),
+            [("api", 0, "internal", "internal"),
+             ("test-1", 55535, "vless", "splithttp")],
+        )
+
+    def test_reject_range(self):
+        for value in ("1000-2000", "1000,2000", 0, 65536, True):
+            bad = handler(port=value)
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                extract([bad])
+
+    def test_reject_duplicate_tag(self):
+        with self.assertRaises(ValueError):
+            extract([handler(), handler(port=30000)])
+
+    def test_reject_invalid_schema(self):
+        for bad in (
+            {"tag": "test-1"},
+            dict(handler(), receiverSettings={
+                "_TypedMessage_": "unexpected.Type", "portList": 55535,
+            }),
+            dict(handler(), proxySettings={"type": "not-CLI-format"}),
+        ):
+            with self.assertRaises(ValueError):
+                extract([bad])
+
+    def test_default_tcp_network(self):
+        bad = handler()
+        bad["receiverSettings"].pop("streamSettings")
+        self.assertEqual(extract([bad])[0][3], "tcp")
+
+
+if __name__ == "__main__":
     unittest.main()
