@@ -77,8 +77,54 @@ def main() -> int:
     for path, data in new.items():
         print(f"VERIFIED {path.name} {sha(data)}")
     if args.apply:
-        for path, data in new.items():
-            path.write_bytes(data)
+        # Stage *both* files before touching either original. A failed write
+        # must never leave a half-installed Android wrapper.
+        import os
+        import tempfile
+
+        originals = {path: path.read_bytes() for path in new}
+        for path, data in originals.items():
+            if path.is_symlink() or sha(data) != EXPECTED[path.name]:
+                raise ValueError(f"{path.name}: changed during preflight; no changes made")
+
+        def staged(path: Path, data: bytes) -> Path:
+            fd, name = tempfile.mkstemp(prefix=".m6-", suffix=".new", dir=path.parent)
+            candidate = Path(name)
+            try:
+                with os.fdopen(fd, "wb") as f:
+                    f.write(data)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.chmod(candidate, path.stat().st_mode & 0o777)
+                return candidate
+            except BaseException:
+                candidate.unlink(missing_ok=True)
+                raise
+
+        staged_files = {}
+        installed = []
+        try:
+            for path, data in new.items():
+                staged_files[path] = staged(path, data)
+            for path in new:
+                # Refuse a concurrent user edit before replacing anything.
+                if sha(path.read_bytes()) != sha(originals[path]):
+                    raise ValueError(f"{path.name}: changed during staging")
+            for path in new:
+                os.replace(staged_files[path], path)
+                installed.append(path)
+            for path, data in new.items():
+                if sha(path.read_bytes()) != sha(data):
+                    raise ValueError(f"{path.name}: verification failed")
+        except BaseException:
+            # Roll back in reverse order even if the second replace failed.
+            for path in reversed(installed):
+                backup = staged(path, originals[path])
+                os.replace(backup, path)
+            raise
+        finally:
+            for candidate in staged_files.values():
+                candidate.unlink(missing_ok=True)
         print("M6_DUPLICATE_RUNTIME_CHANNEL=REMOVED_SOURCE_ONLY")
     else:
         print("M6_DUPLICATE_RUNTIME_CHANNEL=CHECK_PASS_NO_WRITE")
