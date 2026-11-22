@@ -64,3 +64,12 @@
 - **Ожидаемое:** HEAD совпадает, Stage4=0, `truncated=false`, серверные компоненты и оба новых журнала сохраняются.
 - **Фактически:** `HEAD_MATCH=PASS`, `STAGE4_FILES_REMAINING=0`, `TREE_COMPLETE=true`, `PROTECTED_PATHS_PRESENT=8/8`, `BLOBS_AFTER=155`.
 - **Итог:** `JOB-002=PASS_GITHUB_CLEANUP`. Android Kotlin/Flutter build, ARM64 execution, VPN E2E = `NOT_RUN`. Операции на Homeserver и работающих службах = `NONE`.
+
+### JOB-003 — Read-only release/source/Docker/Android contract research (22.11.2026)
+
+- **Baseline:** `6beb9eae9d9a3ef3110b5e3cbcb9e13d14d242f6`, `work/m6-android-ingress`; выполнение исследовательского чтения GitHub; отдельный wall-clock старта не получен (`TIME_NOT_VERIFIED`). Время запишем по финальному docs commit через GitHub metadata.
+- **Вопросы:** опубликован ли Linux v1.0.2; какая точная сборка и функции; какие Docker image/порт и подтверждённые результаты; как Android обязан работать с сервером.
+- **Метод и evidence:** GitHub API `fetch_file` по Git refs, `fetch` `/releases/tags/v1.0.2`; проверка release base source `96c1367` отдельно от текущего prototype; старый `docs/V1_0_2_DEVELOPMENT_LOG.md` с последовательными operator results.
+- **Ожидаемое:** согласованность release sha, image digest, Compose effective, HTTP2/mTLS/framing route & ACL source; отдельная оговорка отсутствия нового device E2E.
+- **Фактически:** Release опубликован `07:53:17Z`, Linux asset SHA `aea59080...` совпадает с Docker-журналом; `runtime_policy.go` подтверждает одну atomic generation; release v1.0.1 source подтверждает `POST /v2/stream`, H2 TLS 1.3 + mTLS, service header, wire framing, padding/jitter. Docker operator `COMPOSE_PERSISTENCE=PASS` с host 18443 -> container 8443. Legacy `TCPRoutes` и `configuredTCPRoutes` всё ещё находятся в GitHub source; пользователь запрещает их возвращение в Android.
+- **Статус:** `PASS_READ_ONLY_SOURCE_EVIDENCE`; `PASS_RECORDED_SERVER_DEPLOYMENT`; `BLOCKED_CURRENT_SERVICE_BINDING_INTERFACE` пока не подтверждён точный live registrar discovery; `ANDROID_COMPILE=NOT_RUN`; `ANDROID_E2E=NOT_RUN`. Никакие службы или конфигурации не менялись.
