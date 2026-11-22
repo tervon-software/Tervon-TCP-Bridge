@@ -182,3 +182,27 @@ go vet ./...
 **Критический инвариант для этапа 3:** опубликованные `tcp_routes` должны соответствовать **фактически применённой** политике Decapsulator, а не только данным панели. API без подтверждённого backend в Xray или без подтверждения применения в ядре не даёт права рекламировать порт как доступный. При несогласованности/недоступности данных не открывать произвольный backend и не заявлять `CONNECTED`.
 
 **Следующая работа:** точная ревизия клиентского/серверного lifecycle, затем минимальный механизм публикации согласованного snapshot. Порядок безопасного обновления, валидатор live Xray, срок актуальности API и подтверждение смены политики требуется реализовать и проверить тестами в рамках этапа 3. Рабочие службы, секреты и Android не менялись.
+
+## 2026-11-22 — Этап 3: включение Remnawave и нормализация маршрутов (SOURCE ONLY)
+
+**Уточнение пользователя:** в задаче интеграции нельзя забывать Remnawave API. Поддержка Remnawave относится к общему контракту v1.0.2; в каскаде достаточно одного Decapsulator на главной ноде, но установка Decapsulator на любую другую ноду **не ограничивается**. Android выбирает VPN-ноду по подписке и проверяет Bridge на её домене; без данных/подтверждения Bridge обход DPI не включается. Это не согласие на перезапуск или изменение служб.
+
+**Сверенный GitHub HEAD перед изменениями:** `4db61f2b0cbd07e32ab7a371b54c67396d8e6562`. Предшествующий stage 2 PASS документирован в `5abd1cfe85c493c6286eb3e6852dec5fe6313eab`.
+
+**Публичные официальные источники Remnawave (сверены 2026-11-22):**
+- API: `https://docs.rw/api/` (показывает Remnawave API v3.4.7); доступны read-only `GET /api/config-profiles/inbounds`, `GET /api/config-profiles/{uuid}/inbounds`, `GET /api/config-profiles/{uuid}/computed-config`. Эти endpoints показывают, что можно получать профиль и inbound, но **не доказывают**, что все inbound списка активированы на конкретной ноде.
+- `https://docs.rw/learn-en/nodes/`: нода выбирает **один Config Profile**, а в его пределах могут быть включены только выбранные inbound; Node является фактическим Xray endpoint, панель сама не выполняет Xray traffic.
+- `https://github.com/remnawave/python-sdk/blob/production/remnawave/controllers/config_profiles.py`: подтверждает API пути просмотра профилей и inbound. `https://github.com/remnawave/python-sdk/blob/production/remnawave/__init__.py`: Bearer token используется как заголовок Authorization.
+- **Ограничение:** фактическая схема Node UUID → выбранный профиль → активные inbound/фактически применённая Node конфигурация ещё не зафиксирована по реальному API JSON. Нельзя приравнивать `GET /api/config-profiles/inbounds` к активным портам ноды и нельзя пока объявлять Remnawave API adapter готовым. До сверки модели конкретной ноды оператору не предлагать подключать токен/панель в production.
+
+**Новая общая архитектурная граница:** `3x-ui API` или `Remnawave API` → данные **только выбранной ноды** → сравнение с эффективными inbound Xray → строгие разрешённые маршруты → атомарная ACL+routes политика ядра → подтверждение применения → discovery публикация того же поколения. Одна версия таблицы должна использоваться сервером и discovery; нельзя рекламировать маршрут, который ядро не подтвердило. Исчезновение API отдельно диагностируется; не считать его приказом удалить маршруты.
+
+**Новые SOURCE файлы:**
+- `integrations/android-ingress/xui/route_reconcile.go` — независимая `ReconcileInbounds` принимает нормализованные `PanelInbound` (provider предварительно фильтрует по выбранной ноде) и `EffectiveInbound` (локально проверяемая актуальная конфигурация Xray). Совпадение порта+протокола+TCP-транспорта обязательно; disabled, non-TCP, неизвестные, дублированные, некорректные backend исключаются/отклоняются. Возвращаемые `VerifiedRoute` **ещё НЕ разрешено автоматически публиковать**: сначала узел проверяет backend locality и получает подтверждение атомарного применения новой политики ядром. В модуле нет hardcode серверных адресов/портов, изменения API/ACL/Docker отсутствуют.
+- `integrations/android-ingress/xui/route_reconcile_test.go` — модель 3x-ui с enabled/disabled TCP и XHTTP; Remnawave модель *уже отфильтрованного активного inbound выбранной ноды*; негативные тесты UDP, несовпадающих протоколов/транспортов, дублей, несовпадения backend, некорректного сервиса.
+
+**Коммиты исходника:** `204f86db95590ed26369197f75df7db8b92bb504`, `4e9460091e940c5338c1e310aeaa652f78679f5a`.
+
+**Статусы:** `STAGE3_RECONCILE_SOURCE=COMMITTED`; `STAGE3_RECONCILE_GO_TEST=NOT_RUN`; `REMNAWAVE_NODE_API_SCHEMA=UNVERIFIED`; `REMNAWAVE_REAL_ADAPTER=NOT_IMPLEMENTED`; `XRAY_LIVE_CONFIG_READER=NOT_CONNECTED`; `CORE_ACK_AND_DISCOVERY=NOT_CONNECTED`; `STAGE3_PASS=NO`; `RELEASE_V1_0_2=NO`. Утверждение, что эти файлы завершили интеграцию 3x-ui или Remnawave, запрещено.
+
+**Следующая проверка:** на точном source HEAD выполнить `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...` для `integrations/android-ingress/xui`. При любых FAIL исправить этот пакет, не переходить к API endpoint integration. Не затрагивать живые службы.
