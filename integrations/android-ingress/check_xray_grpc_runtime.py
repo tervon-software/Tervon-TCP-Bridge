@@ -54,7 +54,13 @@ def extract(inbounds):
         if not isinstance(proxy_type,str):
             raise ValueError("proxy type missing")
         m=re.fullmatch(r"xray\.proxy\.([a-z0-9_]+)\.inbound\.Config",proxy_type)
-        protocol=m.group(1) if m else "unknown"
+        if m:
+            protocol=m.group(1)
+        else:
+            # Xray-core trojan/socks/http inbound protobufs use ServerConfig.
+            server=re.fullmatch(r"xray\.proxy\.(trojan|socks|http)\.ServerConfig",proxy_type)
+            dokodemo=proxy_type=="xray.proxy.dokodemo.Config"
+            protocol=server.group(1) if server else "dokodemo-door" if dokodemo else "unknown"
         result.append((tag,port,protocol,network))
     return result
 
@@ -115,6 +121,7 @@ def main():
                 continue
             if protocol=="unknown" or network not in TCP:
                 unsupported+=1
+                print(f"XRAY_INBOUND port={port} status=UNSUPPORTED_PROTOCOL_OR_TRANSPORT")
                 continue
             desired=reference.get(tag)
             state="NOT_IN_CONFIG"
