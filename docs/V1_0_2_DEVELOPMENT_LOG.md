@@ -609,7 +609,7 @@ go vet ./...
 
 ## 2026-11-22 — Этап 3: уточнение Xray applied-state — gRPC HandlerService вместо config.json
 
-**Источник решения:** оператор указал на hot-apply 3x-ui через Xray gRPC и невозможность использовать сохранённый `config.json` как доказательство актуальной runtime-конфигурации. Сверены актуальный план и журнал; GitHub HEAD до записи `460f345f77962d62802191ef49a9d6efc4b280bd`? Фактический HEAD при предыдущей фиксации: `03317e8ea9ba921659ca3c1e4a561b6c97c9a5db`; перед записью выполняется отдельная проверка HEAD в инструменте. **Никаких действий на Homeserver и исходниках Bridge в этом шаге нет.**
+**Источник решения:** оператор указал на hot-apply 3x-ui через Xray gRPC и невозможность использовать сохранённый `config.json` как доказательство актуальной runtime-конфигурации. Сверены актуальный план и журнал; Подтверждённый GitHub HEAD до записи: `03317e8ea9ba921659ca3c1e4a561b6c97c9a5db` (ветка `work/m6-android-ingress`). **Никаких действий на Homeserver и исходниках Bridge в этом шаге нет.**
 
 **Проверка upstream (22.11.2026):**
 - Xray-core API имеет gRPC `HandlerService` и `StatsService`, а также CLI `xray api`. В текущем upstream присутствуют `HandlerService.ListInbounds`, `GetInboundUsers`, `GetInboundUsersCount`; `ListInboundsResponse.Inbounds` использует `[]*core.InboundHandlerConfig`. Источники: https://pkg.go.dev/github.com/xtls/xray-core/app/proxyman/command , https://xtls.github.io/en/config/api.html , https://github.com/XTLS/Xray-core/blob/main/main/commands/all/api/api.go
