@@ -1,5 +1,7 @@
 # M6 — смена TLS-имени Android Bridge: bridge.xrayvless.online → vp.xrayvless.online
 
+> **АРХИВНЫЙ СНИМОК ЭТАПА, НЕ ДЕЙСТВУЮЩАЯ ИНСТРУКЦИЯ (ревизия 2026-11-22).** Датированные статусы, старые примеры адресов/портов, команды cutover/patch и признаки NOT_IMPLEMENTED/PENDING ниже не отражают текущее состояние M6. Не выполнять команды из этого документа без нового утверждённого плана и сверки фактического кода/сервисов. Актуальные факты: [`DEVELOPMENT_PLAN.md`](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/work/m6-android-ingress/docs/DEVELOPMENT_PLAN.md), [`M6_AUDIT_2026-11-22.md`](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/work/m6-android-ingress/docs/M6_AUDIT_2026-11-22.md). Android Bridge E2E = FAIL; исторические PASS относятся только к явно названному слою.
+
 **Решение оператора, 21.11.2026.** Изменяется только имя **серверного Android-facing Bridge**. Приложение Android не содержит фиксированных адресов, использует домен текущей подписки. **Не менять** VLESS TCP :30000, 3x-ui-подписку, её порт 2096, FIN-каскад, существующий Linux Bridge Россия → Финляндия, клиентский CA, серверный CA, UUID или Xray.
 
 ## Достоверные исходные данные
