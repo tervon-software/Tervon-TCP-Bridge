@@ -43,3 +43,15 @@
 - **Ожидание:** оба файла доступны, в каждом корректно указана точка отсчёта 22.11.2026 18:00 UTC+7.
 - **Результат:** `PASS` только для создания документов и commit-time provenance. **Android compile/E2E: NOT_RUN.**
 - **Влияние на службы/приложение:** `NONE`.
+
+### JOB-002 — Граница и атомарная очистка устаревших Android Stage4 GitHub файлов
+
+- **Начальное состояние Git:** `aa5d3f1233cb71784dadbd7c4a038141a7f33a72`, рабочая ветка `work/m6-android-ingress`, base tree `c696b561bb4e6615a59abf2cd8871430c1564791`.
+- **Вопрос:** полностью ли изолирована удаляемая старая Android-инсталляция от Linux/серверного кода?
+- **Среда:** GitHub REST Git Tree API, read-only `git/commits`, `git/trees?recursive=1`, затем create_blob/create_tree/create_commit/update_ref.
+- **Критерий preflight:** ровно 71 файл с префиксом `integrations/android-ingress/stage4/`, `truncated=false`; ни один path за этим префиксом не удалять. `HEAD` должен оставаться `aa5d3f1233cb71784dadbd7c4a038141a7f33a72` до ref update.
+- **Preflight факт:** 226 blob-файлов в дереве; в удаляемом Stage4 71; `truncated=false`; `PREFLIGHT=PASS`.
+- **Операция:** одно дерево Git с 71 `sha:null` и изменениями двух журналов; один commit и fast-forward `update_ref` с `expected_sha`.
+- **Проверка после коммита:** независимо заново получить HEAD/tree, удостовериться, что Stage4 файлов 0, серверные source paths сохранены и оба журнала доступны. Пока не выполнено, `POST_VERIFY=PENDING`.
+- **Новые Android compile/E2E:** `NOT_RUN`; это **удаление устаревшего source из Git**, не восстановление мобильного приложения. Службы не изменяются.
+- **Время:** точные временные метки commit будут считаны из GitHub `created_at` после публикации; не заменять их точкой отсчёта 18:00.

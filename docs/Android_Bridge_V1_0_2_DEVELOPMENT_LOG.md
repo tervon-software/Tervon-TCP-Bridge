@@ -39,3 +39,85 @@
 - **Изменения исходников Android:** `NONE`.
 - **Удаление файлов:** `NOT_STARTED`; нужно уточнить, что означает «все файлы в GitHub», прежде чем трогать готовый Linux/серверный проект.
 - **Программные тесты Android:** `NOT_RUN`, см. JOB-000.
+
+### Запись 003 — утверждённая очистка старой Android Bridge Stage 4, 22.11.2026
+
+- **Распоряжение:** удалить из GitHub все проблемные файлы Bridge-инсталляции. Граница уточнена пользователем; готовые серверная часть, Linux v1.0.2, API 3x-ui, mTLS/PKI и работающие службы не затрагиваются.
+- **HEAD до операции:** `aa5d3f1233cb71784dadbd7c4a038141a7f33a72`; **base Git tree:** `c696b561bb4e6615a59abf2cd8871430c1564791`; **ветка:** `work/m6-android-ingress`.
+- **Инвентаризация GitHub Git Tree:** 226 blob-файлов, 71 файл целиком под `integrations/android-ingress/stage4/`, `truncated=false`.
+- **Изменение:** единым атомарным Git commit удалить **все 71 старый исходный/установочный/тестовый Android Stage4 файл** с записью `sha:null` в Git tree. Архивные исходники, Kotlin/Dart копии, Python installers, Python patch generators, старые runtime-route kits и кандидаты восстановления не использовать вновь.
+- **Полный манифест удаления:** 
+  - `integrations/android-ingress/stage4/BridgeAutoCertificateAndroidAdapter.kt`
+  - `integrations/android-ingress/stage4/BridgeAutoCertificateEnrollment.kt`
+  - `integrations/android-ingress/stage4/BridgeAutoCertificateEnrollmentTest.kt`
+  - `integrations/android-ingress/stage4/BridgeAutoEnrollmentChannel.kt`
+  - `integrations/android-ingress/stage4/BridgeAutoEnrollmentHttp.kt`
+  - `integrations/android-ingress/stage4/BridgeAutoEnrollmentHttpBindingTest.kt`
+  - `integrations/android-ingress/stage4/BridgeCatalogTrustAnchors.kt`
+  - `integrations/android-ingress/stage4/BridgeClientConfigBuilder.kt`
+  - `integrations/android-ingress/stage4/BridgeClientConfigBuilderTest.kt`
+  - `integrations/android-ingress/stage4/BridgeClientPemHandoff.kt`
+  - `integrations/android-ingress/stage4/BridgeDeviceCsr.kt`
+  - `integrations/android-ingress/stage4/BridgeDeviceIdentity.kt`
+  - `integrations/android-ingress/stage4/BridgeDeviceSelfCheck.kt`
+  - `integrations/android-ingress/stage4/BridgeDiagnostics.kt`
+  - `integrations/android-ingress/stage4/BridgeServerCatalogTrust.kt`
+  - `integrations/android-ingress/stage4/BridgeServerCatalogTrustSelfCheck.kt`
+  - `integrations/android-ingress/stage4/BridgeServerCertificateStore.kt`
+  - `integrations/android-ingress/stage4/BridgeServerReconciler.kt`
+  - `integrations/android-ingress/stage4/BridgeServerReconcilerTest.kt`
+  - `integrations/android-ingress/stage4/BridgeSignedServerCatalog.kt`
+  - `integrations/android-ingress/stage4/BridgeVlessRoutePlan.kt`
+  - `integrations/android-ingress/stage4/BridgeVlessRoutePlanTest.kt`
+  - `integrations/android-ingress/stage4/BridgeVpnSession.kt`
+  - `integrations/android-ingress/stage4/BridgeXrayConfigRoute.kt`
+  - `integrations/android-ingress/stage4/BridgeXrayConfigRouteTest.kt`
+  - `integrations/android-ingress/stage4/M6_RUNTIME_ROUTE_PACKAGE.ru.md`
+  - `integrations/android-ingress/stage4/README.ru.md`
+  - `integrations/android-ingress/stage4/TrojanOutboundParser.kt`
+  - `integrations/android-ingress/stage4/TrojanOutboundParserTest.kt`
+  - `integrations/android-ingress/stage4/activate-server-name-change.py`
+  - `integrations/android-ingress/stage4/apply_m6_recovery_sources.py`
+  - `integrations/android-ingress/stage4/apply_m6_session_diagnostics.py`
+  - `integrations/android-ingress/stage4/apply_m6_trojan_grpc_fix.py`
+  - `integrations/android-ingress/stage4/apply_to_tervonvpndpi.py`
+  - `integrations/android-ingress/stage4/bridge_monitor_screen.dart`
+  - `integrations/android-ingress/stage4/bridge_server_trust_screen.dart`
+  - `integrations/android-ingress/stage4/bridge_settings_screen.dart`
+  - `integrations/android-ingress/stage4/fix_bc_license_merge.py`
+  - `integrations/android-ingress/stage4/fix_stage4_selfcheck_ui.py`
+  - `integrations/android-ingress/stage4/install_auto_enrollment.py`
+  - `integrations/android-ingress/stage4/install_bridge_monitoring.py`
+  - `integrations/android-ingress/stage4/install_catalog_trust_asset.py`
+  - `integrations/android-ingress/stage4/install_cert_store.py`
+  - `integrations/android-ingress/stage4/install_m6_auto_discovery_fix.py`
+  - `integrations/android-ingress/stage4/install_m6_auto_toggle.py`
+  - `integrations/android-ingress/stage4/install_m6_auto_ui.py`
+  - `integrations/android-ingress/stage4/install_m6_discovery_scheme.py`
+  - `integrations/android-ingress/stage4/install_m6_failure_runtime.py`
+  - `integrations/android-ingress/stage4/install_m6_reason_channel.py`
+  - `integrations/android-ingress/stage4/install_m6_tcp_raw_fix.py`
+  - `integrations/android-ingress/stage4/install_m6_trojan_app.py`
+  - `integrations/android-ingress/stage4/install_m6_universal_tcp_source.py`
+  - `integrations/android-ingress/stage4/install_m6_xhttp_source.py`
+  - `integrations/android-ingress/stage4/install_per_server_catalog.py`
+  - `integrations/android-ingress/stage4/install_server_pin_selfcheck.py`
+  - `integrations/android-ingress/stage4/install_server_trust_ui.py`
+  - `integrations/android-ingress/stage4/install_signed_catalog.py`
+  - `integrations/android-ingress/stage4/m6-auto-toggle-source.patch`
+  - `integrations/android-ingress/stage4/rebuild/remove_duplicate_runtime_channel.py`
+  - `integrations/android-ingress/stage4/remove_manual_trust_ui.py`
+  - `integrations/android-ingress/stage4/runtime-route-kit/README.ru.md`
+  - `integrations/android-ingress/stage4/runtime-route-kit/install_m6_runtime_route.py`
+  - `integrations/android-ingress/stage4/runtime-route-kit/m6-runtime-route.patch`
+  - `integrations/android-ingress/stage4/runtime-route-kit/m6_manifest.json`
+  - `integrations/android-ingress/stage4/stage-server-name-change.py`
+  - `integrations/android-ingress/stage4/stage_m6_trojan_backend.py`
+  - `integrations/android-ingress/stage4/stage_m6_xhttp_backend.py`
+  - `integrations/android-ingress/stage4/test_install_catalog_trust_asset.py`
+  - `integrations/android-ingress/stage4/test_stage_m6_trojan_backend.py`
+  - `integrations/android-ingress/stage4/test_stage_m6_xhttp_backend.py`
+  - `integrations/android-ingress/stage4/trojan_subscription_test.dart`
+- **Оставить:** `prototype/`, `integrations/android-ingress/xui/`, `runtime-acl/`, `runtime-routes/`, `compose.yaml`, `config` server PKI/Go sources, действующие Linux релизы и оба новых журнала.
+- **ВАЖНО:** физические `Bridge*.kt` в `/opt/tervonvpndpi` **этим коммитом не очищаются** — приложение является отдельным исходным деревом Homeserver. Запрещено утверждать обратное.
+- **Результат и HEAD удаления:** устанавливаются отдельной проверкой опубликованного Git HEAD после атомарной операции; серверный E2E заново не тестировать.
