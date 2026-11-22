@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 RELEASE_COMMIT = "96c136702d10b6fb9a16aa2893f6b978e8b14e86"
-EXTRA = ("policy.go", "policy_test.go")
+EXTRA = ("policy.go", "policy_test.go", "policy_stream_test.go")
 
 
 def replace_once(text, original, replacement, name):
