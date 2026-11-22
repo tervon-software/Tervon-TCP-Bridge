@@ -37,3 +37,25 @@
 - **Этап 6:** изолированный кандидат на Homeserver, только после точных PASS — отдельно согласованный cutover. Документация/release лишь по подтверждённым результатам; Android — отдельный следующий этап.
 
 **Следующий шаг:** реализация и изолированная проверка **Этапа 1**, без обновления работающих служб. Никаких PASS v1.0.2 пока нет.
+
+## 2026-11-22 — Шаг 1. Исходный адаптер чтения inbound 3x-ui
+
+**Статус:** `SOURCE_COMMITTED`; **`GO_TEST=NOT_RUN`, `GO_RACE=NOT_RUN`, `GO_VET=NOT_RUN`, `LIVE_API_ADAPTER=NOT_TESTED`, `ROUTES_HOT_RELOAD=NOT_IMPLEMENTED`, `v1.0.2_PASS=NO`**.
+
+**Изменённые файлы:**
+- `integrations/android-ingress/xui/inbounds.go` — независимый read-only вызов `GET /panel/api/inbounds/list/slim` через существующий HTTPS Bearer-клиент; строго проверяются HTTP-ответ, структура списка, ID, порт, enable, streamSettings, допускается объект или legacy JSON-string. Возвращается **только очищенная** проекция (id/port/protocol/enabled/network/security); клиентские секреты не выводятся. Не меняет маршруты.
+- `integrations/android-ingress/xui/inbounds_test.go` — mock HTTPS success и negative tests некорректных/дублированных ID, порта, отсутствующего enable, некорректных настроек, отказа API, неутечки токена/пути.
+- Имеющийся `client.go` и путь к данным клиентов не удалялись: удаление legacy-API и замена runtime регистратора — отдельные изменения после подтверждённых тестов; не нарушать текущую систему.
+
+**GitHub commits:** `82a3fba0ecd5372684c9b7c0ae2d7b646b2e0802` (исходник); `47ba046c1e3003340858d2691c914cf6904b8052` (тест); `8273217cc3c3df3a097957b39989452e2b5c6e7c` (исправление fixture двойного JSON escape при повторном чтении исходника).
+
+**Проверки, которые необходимо выполнить на точном HEAD этого пакета:**
+```bash
+cd /opt/tervon-tcp-bridge-m6-android-ingress/integrations/android-ingress/xui
+go test -count=1 ./...
+go test -race -count=1 ./...
+go vet ./...
+```
+Перед запуском убедиться, что checkout — нужная ветка, получен новый HEAD без потери локальных изменений. Эти команды не обновляют Docker, 3x-ui, Xray, Nginx, Android и не требуют токена API. Тесты mock HTTP и не подтверждают боевую маршрутизацию.
+
+**Следующий шаг:** получить результаты названных Go-проверок с Homeserver. При FAIL исправить именно этот модуль и повторить только относящиеся к дефекту проверки. При PASS записать точный HEAD и переходить к серверному dynamic-routes механизму по утверждённому плану. Не создавать ложное впечатление, что один API-adapter устранил отказ Android 55535.
