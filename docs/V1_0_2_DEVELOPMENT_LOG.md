@@ -317,3 +317,17 @@ go vet ./...
 **Не завершено:** реальная интеграция Xray effective inbound, синхронизация политики ядра и подтверждение поколения, discovery, Android dataplane; `STAGE3=IN_PROGRESS`, `REMNAWAVE_LIVE_API=NOT_TESTED`, `CORE_ACK=NOT_IMPLEMENTED`, `ANDROID_E2E=NOT_PASS`, `V1.0.2_RELEASE=NO`.
 
 **Дальше внутри этапа 3:** проверка актуального фактически применённого Xray inbound перед публикацией маршрута. Сначала изучить существующий валидатор и способ чтения Xray config, не переписывать проверенные механизмы и не затрагивать сервисы.
+
+## 2026-11-22 — Этап 3: кандидаты Xray configured inbound (исходники, не runtime PASS)
+
+**После PASS Remnawave TOCTOU на `da7f8e2141218fce407fb5b88ff97773686a019c`** добавлена новая связанная часть этапа 3. PASS предыдущего commit не переносится.
+
+**Сверенный предыдущий механизм:** `integrations/android-ingress/check_live_xray_bridge_routes.py`, `test_check_live_xray_bridge_routes.py`. Текущий Python audit сопоставляет порты по двум JSON-файлам, исключает некоторые non-TCP типы, но **не подтверждает**, что запущенный Xray применил именно этот файл. Повторно реализовывать тот же сервис управления не требуется; новый Go-парсер нужен для передачи разрешённых кандидатов в общий Go reconcile и отличается обязательным доверенным resolver.
+
+**Новые файлы и их коммиты:**
+- `integrations/android-ingress/xui/xray_configured.go` — `ParseXrayConfiguredInbounds`, строго ограниченный JSON-парсер Xray `inbounds`; нормализует TCP transport и возвращает `EffectiveInbound` **только как CONFIGURED кандидатов** после вызова внедрённого доверенного `XrayBackendResolver` для каждого TCP-port. Сам Xray JSON не может задать произвольный backend address. Ошибки неизвестного транспорта/дублированных портов/неверных адресов не превращаются в разрешение. Commit `230c8c1cc29a706db670322949deee2b4a6da1cd`.
+- `integrations/android-ingress/xui/xray_configured_test.go` — позитивная связь `ParseXrayConfiguredInbounds → ReconcileInbounds` с 3x-ui-подобными данными; negative JSON/port/duplicate/backend resolver tests. Commit `c0a3f1ffcde82d96cf02137b973ff833d1782804`.
+
+**Доказательная граница:** `XRAY_CONFIGURED_CANDIDATES=SOURCE_COMMITTED`; `GO_TEST_NEW_HEAD=NOT_RUN`; `XRAY_PROCESS_APPLIED_CONFIG=NOT_VERIFIED`; `CORE_ROUTE_APPLY_ACK=NOT_IMPLEMENTED`; `DISCOVERY_GEN_MATCH=NOT_IMPLEMENTED`; `STAGE3=IN_PROGRESS`, `RELEASE=NO`. `EffectiveInbound` в типах описывает предполагаемое эффективное состояние, но функция-источник здесь является только файлом. Никакие кандидаты не могут рекламироваться Android без отдельного подтверждения работающего Xray и атомарного применённого policy ядра.
+
+**Следующая проверка:** выполнить прицельные `go test -count=1 -run '^TestParseXrayConfiguredInbounds' -v .`, полный `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...` на точном новом HEAD. Только после подтверждённого PASS продолжить runtime-proof и согласованную публикацию.
