@@ -7,6 +7,7 @@ import (
  "os"
  "path/filepath"
  "fmt"
+ "encoding/json"
  "testing"
 )
 
@@ -216,4 +217,34 @@ func TestApplyCompletePolicyAtomicACKAndRollback(t *testing.T) {
  if err!=nil||string(restored)!=string(prior){t.Fatal("previous policy not restored")}
  if calls!=3{t.Fatalf("unexpected ACK calls: %d",calls)}
  if err:=ApplyCompletePolicy(context.Background(),path,nextRoutes,nextACL,digest,confirm);err==nil{t.Fatal("mismatched digest accepted")}
+}
+
+func TestRuntimePolicyCoordinatorEnrollmentUsesCurrentRoutes(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"server.json")
+ existing:=strings.Repeat("a",64)
+ newcomer:=strings.Repeat("b",64)
+ original:=fmt.Sprintf(`{"mode":"server","routes":{"30000":[{"Name":"30000","Address":"127.0.0.1:30000"}]},"authorized":{"%s":["30000"]}}`,existing)
+ if err:=os.WriteFile(path,[]byte(original),0600);err!=nil{t.Fatal(err)}
+ activator:=&HotACLActivator{Path:path,Services:[]string{"30000"},Digest:FullPolicyConfigDigest,
+  Confirm:func(_ context.Context,digest string)error{
+   data,err:=os.ReadFile(path)
+   if err!=nil{return err}
+   actual,err:=FullPolicyConfigDigest(data)
+   if err!=nil||actual!=digest{return errors.New("wrong policy ACK")}
+   return nil
+  },
+ }
+ coordinator:=&RuntimePolicyCoordinator{ConfigPath:path,Activator:activator}
+ next:=fmt.Sprintf(`{"mode":"server","routes":{"55535":[{"Name":"55535","Address":"127.0.0.1:55535"}]},"authorized":{"%s":["55535"]}}`,existing)
+ if err:=os.WriteFile(path,[]byte(next),0600);err!=nil{t.Fatal(err)}
+ if err:=coordinator.Activate(context.Background(),newcomer);err!=nil{t.Fatal(err)}
+ data,err:=os.ReadFile(path)
+ if err!=nil{t.Fatal(err)}
+ raw,err:=decodeServerConfig(data)
+ if err!=nil{t.Fatal(err)}
+ var acl map[string][]string
+ if err:=json.Unmarshal(raw["authorized"],&acl);err!=nil{t.Fatal(err)}
+ if len(acl[newcomer])!=1||acl[newcomer][0]!="55535"{
+  t.Fatalf("enrollment used stale service list: %v",acl[newcomer])
+ }
 }
