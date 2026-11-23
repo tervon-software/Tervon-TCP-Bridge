@@ -278,3 +278,51 @@ func TestCoordinatorEnrollmentInvalidatesPreviousDiscoveryGeneration(t *testing.
  if err:=json.Unmarshal(raw["authorized"],&acl);err!=nil{t.Fatal(err)}
  if len(acl[newFP])!=1||acl[newFP][0]!="30000"{t.Fatal("new fingerprint not authorized")}
 }
+
+func TestCoordinatorSyncAppliesFullGenerationWithRealAtomicWriter(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"server.json")
+ fp:=strings.Repeat("a",64)
+ before:=fmt.Sprintf(`{"mode":"server","listen":":8443","routes":{"30000":[{"Name":"30000","Address":"127.0.0.1:30000"}]},"authorized":{"%s":["30000"]}}`,fp)
+ if err:=os.WriteFile(path,[]byte(before),0600);err!=nil{t.Fatal(err)}
+ confirmed:=0
+ ack:=func(_ context.Context,digest string)error{
+  confirmed++
+  data,err:=os.ReadFile(path)
+  if err!=nil{return err}
+  actual,err:=FullPolicyConfigDigest(data)
+  if err!=nil{return err}
+  if actual!=digest{return errors.New("core generation digest mismatch")}
+  return nil
+ }
+ store:=new(ConfirmedRouteStore)
+ c:=&RuntimePolicyCoordinator{
+  ConfigPath:path,Store:store,
+  Panel:func(context.Context)([]PanelInbound,error){return []PanelInbound{
+   {Port:30000,Protocol:"vless",Network:"tcp",Enabled:true},
+   {Port:55535,Protocol:"vless",Network:"xhttp",Enabled:true},
+   {Port:55636,Protocol:"trojan",Network:"tcp",Enabled:true},
+  },nil},
+  Applied:func(context.Context)([]EffectiveInbound,error){return []EffectiveInbound{
+   {Port:30000,Protocol:"vless",Network:"raw",Service:"30000",Address:"127.0.0.1:30000"},
+   {Port:55535,Protocol:"vless",Network:"splithttp",Service:"55535",Address:"127.0.0.1:55535"},
+   {Port:55636,Protocol:"trojan",Network:"tcp",Service:"55636",Address:"127.0.0.1:55636"},
+  },nil},
+  Apply:func(ctx context.Context,r map[string][]PolicyBackend,a map[string][]string,d string)error{
+   return ApplyCompletePolicy(ctx,path,r,a,d,ack)
+  },
+ }
+ if err:=c.Sync(context.Background());err!=nil{t.Fatal(err)}
+ routes,digest,ready:=store.Snapshot()
+ if !ready||len(routes)!=3||routes["55535"]!="55535"||routes["55636"]!="55636"||confirmed!=1{
+  t.Fatalf("full policy not confirmed: routes=%v ready=%v ACK=%d",routes,ready,confirmed)
+ }
+ data,err:=os.ReadFile(path)
+ if err!=nil{t.Fatal(err)}
+ actual,err:=FullPolicyConfigDigest(data)
+ if err!=nil||actual!=digest{t.Fatal("published digest differs from persisted policy")}
+ raw,err:=decodeServerConfig(data)
+ if err!=nil{t.Fatal(err)}
+ var acl map[string][]string
+ if err:=json.Unmarshal(raw["authorized"],&acl);err!=nil{t.Fatal(err)}
+ if len(acl[fp])!=3{t.Fatalf("ACL not updated atomically: %v",acl)}
+}
