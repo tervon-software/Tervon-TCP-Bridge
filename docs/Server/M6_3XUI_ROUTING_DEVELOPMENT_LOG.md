@@ -101,3 +101,10 @@
 - В `cmd/m6-auto-registrar/main.go` удалены вызов `configuredServiceNames(root)` при запуске и передача статического `Services` в `HotACLActivator`. `RuntimePolicyCoordinator.Activate` теперь единственный источник перечня сервисов для enrollment, перечитывая текущую политику под mutex.
 - Не изменены Docker identity, CA, TLS endpoint, слушающий адрес, API HTTP enrollment и работающие службы. Существующий helper `configuredServiceNames` и его тесты пока сохранены; не удалять без ревизии.
 - SOURCE commit `a64e19fd33e20972a3bf6187e9e68bb22b84d897`. CI этого commit ещё не подтверждён; live 3x-ui/Xray Sync по-прежнему не подключён. M6 IN_PROGRESS.
+
+## 2026-11-24 — защита Discovery от устаревшего digest после enrollment
+
+- `RuntimePolicyCoordinator.Activate` после успешного изменения ACL инвалидирует `ConfirmedRouteStore` (если он подключён). При ошибке активации также fail-closed: результат применения поколения может быть неопределённым. Это не влияет на уже открытые TCP-потоки.
+- Тест `TestCoordinatorEnrollmentInvalidatesPreviousDiscoveryGeneration`: подтверждённый snapshot → enrollment второго fingerprint → snapshot больше не ready; новый ACL сохранён.
+- Коммиты `bf77b1dfcce2d916f1445c16e7a0de72f5e9efe4` и `2c9a9310522773749e7760cc7b980cbf9efc59cd`.
+- **Важная граница:** текущий Registrar пока не подключает Store и Sync. Это исправление не означает, что после enrollment автоматически публикуется новое поколение. Полная интеграция и E2E не PASS; CI текущего кода ожидается. Работающие службы: NONE.
