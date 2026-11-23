@@ -53,7 +53,7 @@ func canonicalInboundNetwork(network string) string {
 // Protocol is the Xray inbound protocol, not its HTTP-based transport.
 func bridgeEligibleProtocol(protocol string) bool {
  switch strings.ToLower(strings.TrimSpace(protocol)) {
- case "vless", "trojan", "shadowsocks", "vmess":
+ case "vless", "trojan", "shadowsocks":
   return true
  default:
   return false
