@@ -4,6 +4,9 @@ import (
  "context"
  "errors"
  "strings"
+ "os"
+ "path/filepath"
+ "fmt"
  "testing"
 )
 
@@ -88,4 +91,39 @@ func TestSyncVerifiedRoutesIgnoresServiceInbounds(t *testing.T) {
   t.Fatalf("unexpected confirmed routes: %+v, ready=%v, applied=%d",got,ready,called)
  }
  if _,exists:=got["10811"];exists {t.Fatal("SOCKS route published")}
+}
+
+func TestRuntimePolicyCoordinatorSerializesACLAndRouteSync(t *testing.T) {
+ ctx:=context.Background()
+ path:=filepath.Join(t.TempDir(),"server.json")
+ fp:=strings.Repeat("a",64)
+ existing:=strings.Repeat("b",64)
+ initial:=fmt.Sprintf(`{"mode":"server","routes":{"30000":[{"Name":"30000","Address":"127.0.0.1:30000"}]},"authorized":{"%s":["30000"]}}`,existing)
+ if err:=os.WriteFile(path,[]byte(initial),0600);err!=nil{t.Fatal(err)}
+ started:=make(chan struct{})
+ release:=make(chan struct{})
+ activator:=&HotACLActivator{
+  Path:path,Services:[]string{"30000"},Digest:FullPolicyConfigDigest,
+  Confirm:func(context.Context,string)error{close(started);<-release;return nil},
+ }
+ store:=new(ConfirmedRouteStore)
+ coordinator:=&RuntimePolicyCoordinator{
+  ConfigPath:path,Activator:activator,Store:store,
+  Panel:func(context.Context)([]PanelInbound,error){return []PanelInbound{{Port:30000,Protocol:"vless",Network:"tcp",Enabled:true}},nil},
+  Applied:func(context.Context)([]EffectiveInbound,error){return []EffectiveInbound{{Port:30000,Protocol:"vless",Network:"tcp",Service:"30000",Address:"127.0.0.1:30000"}},nil},
+  Apply:func(_ context.Context,_ map[string][]PolicyBackend,acl map[string][]string,_ string)error{
+   if _,ok:=acl[fp];!ok{t.Error("concurrent ACL enrollment lost")}
+   if _,ok:=acl[existing];!ok{t.Error("existing ACL lost")}
+   return nil
+  },
+ }
+ activated:=make(chan error,1)
+ go func(){activated<-coordinator.Activate(ctx,fp)}()
+ <-started
+ synced:=make(chan error,1)
+ go func(){synced<-coordinator.Sync(ctx)}()
+ close(release)
+ if err:=<-activated;err!=nil{t.Fatal(err)}
+ if err:=<-synced;err!=nil{t.Fatal(err)}
+ if _,_,ready:=store.Snapshot();!ready{t.Fatal("confirmed route generation absent")}
 }
