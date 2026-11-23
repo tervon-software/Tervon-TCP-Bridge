@@ -1036,3 +1036,13 @@ Running main container remained `RUNNING=true` with image ID `sha256:ce484cdc64c
 // Target profiles supplied by operator: VLESS XHTTP 55535 (11), VLESS TCP 30000 (5), Trojan TCP 55636 (100). Ports are test examples, not hardcoded implementation constants.
 // This is a source-level change only. Existing dynamic route synchronization must publish all active verified inbounds and authorized ACL into RuntimePolicy; source tests do not establish that the production coordinator is currently wired. Do not deploy Android source without matching server selector support.
 // Tests: GitHub CI source result recorded in follow-up commit. Homeserver/APK/device E2E: NOT_RUN. No working services were changed.
+
+
+### 2026-11-23 M6 Android dynamic selector — exact source tests and remaining deployment boundary
+
+- **Source commit:** \`ee113cf1328ee32da1ff28493a67e919c7314129\`, \`work/m6-android-ingress\`, following \`a275bcca\`, \`c92fd541\`, \`2e00495e\`.
+- **Approved intent:** all live TCP inbounds, including VLESS XHTTP 55535, VLESS TCP 30000 and Trojan TCP 55636, selectable for all correctly enrolled devices; future port changes require no APK rebuild. Never return legacy \`tcp_routes\` or allow the certificate registrar to dictate backend choice.
+- **Code:** existing \`RuntimePolicy.Lookup\` now recognizes canonical numeric active-profile port in the existing \`Tervon-Service\` header and resolves it solely against the immutable, fingerprint-authorized current backend routes. Legacy named services still work. Stale, ambiguous, mixed-port, unauthorized and unmatched numeric selectors fail closed. No client-supplied dial destination is accepted.
+- **Tests added:** three-route positive/negative scenarios and live atomic generation switch; numeric service name cannot bypass backend port; three actual HTTP/2+mTLS stream-to-echo-backend connections with distinct port selectors; 116 synthetic enrolled certificate fingerprints concurrently resolving three backend selectors. No live personal client data used.
+- **CI result:** GitHub Actions \`M6 runtime ACL source check (released v1.0.1)\`, run \`45134204649\`: **completed/success** (both \`runtime-acl-released-source\` and \`registrar-source\`).
+- **Boundary:** **SOURCE_CI=PASS** only. \`LIVE_SERVER_BINARY=UNCHANGED\`, \`PRODUCTION_DYNAMIC_POLICY_SYNC=NOT_VERIFIED_FOR_NEW_INBOUNDS\`, \`ANDROID_APK_BUILD=NOT_RUN\`, \`ANDROID_DEVICE_E2E=NOT_RUN\`. Existing live server.json snapshot omitted inbound 55535 and assigned 55636 to vpn-xhttp; no automatic reconciliation or deployment may be claimed from this source-only test. Do not switch the running registrar, Docker or APK until the three actual server routes and ACL generation are confirmed.
