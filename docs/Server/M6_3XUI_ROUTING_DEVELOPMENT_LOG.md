@@ -88,3 +88,10 @@
 - Тест `TestRuntimePolicyCoordinatorEnrollmentUsesCurrentRoutes` проверяет смену маршрута `30000` → `55535` между стартом и регистрацией и точный digest ACK.
 - Коммиты `67fda4bd47c65a0cb66bc0c2f134228706cfe0f1`, `a4f665c186bc1613c1218264e27b79e223678c0b`.
 - **Ограничение:** сам Registrar пока вызывает `HotACLActivator` напрямую, не координатор. Полная интеграция не PASS; текущие CI ещё выполняются. Runtime и службы не затронуты.
+
+## 2026-11-24 — Registrar подключён к единому владельцу enrollment
+
+- **Изменено:** `integrations/android-ingress/xui/cmd/m6-auto-registrar/main.go`. Существующий HTTPS enrollment теперь вызывает `RuntimePolicyCoordinator.Activate(ctx,fingerprint)` вместо прямого `HotACLActivator.Activate`. Используются прежние CA, проверка Docker image/label, TLS endpoint, ACK и путь конфигурации. Новый процесс или writer не добавлен.
+- **Причина:** прямой вызов Activator оставлял статический список сервисов, считанный при старте; coordinator перечитывает актуальные маршруты под общей блокировкой перед регистрацией.
+- **SOURCE commit:** `30b8bd9d7ed9b7b99203987af2eaaf452a0f8f6c`. Поведенческий тест координатора `TestRuntimePolicyCoordinatorEnrollmentUsesCurrentRoutes` — commit `a4f665c186bc1613c1218264e27b79e223678c0b`, CI на текущий Registrar commit ещё не подтверждён.
+- **Ограничения:** запуск Registrar по-прежнему проверяет существующий `server.json` и требует ненулевых маршрутов; автоматический `Sync()` не включён до подтверждённых live Xray/runtime bindings. Это **не** PASS динамической маршрутизации. Рабочие службы не затронуты.
