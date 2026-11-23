@@ -74,3 +74,10 @@
 - **ТЕСТЫ ИЗМЕНЕНЫ:** `integrations/android-ingress/xui/route_sync_test.go`: после успешного ACK временные сбои panel и Xray read сохраняют подтверждённый snapshot; ошибка ACK его инвалидирует.
 - **SOURCE commits:** `a02652f8316b7288d4e3cd9dabd63c548f07f93c` (code), `1d348a1415f1cc6cc4a2dcff5bdba500797307b5` (tests). GitHub Actions на момент записи: runs `45288755257`, `45288755297` запущены на **предыдущем** code commit `a02652f`, поэтому **не доказывают PASS тестового commit**. Полная проверка на финальном SHA ещё НЕ ПОДТВЕРЖДЕНА.
 - **Статус:** SOURCE IMPLEMENTED; CI FINAL SHA PENDING; live Registrar не подключён к coordinator, полная автоматическая маршрутизация НЕ PASS. **Влияние на работающие службы: NONE**.
+
+## 2026-11-24 — единый атомарный writer полного поколения (SOURCE ONLY)
+
+- В рамках утверждённого M6 добавлена `xui.ApplyCompletePolicy` в существующий `acl_activation.go`: тот же `atomicACLConfigWrite`, полные `routes + authorized`, проверка точного digest, сохранение остальных полей `server.json`, подтверждение через переданный callback, восстановление предыдущего файла и повторный ACK при неудаче.
+- Добавлен `TestApplyCompletePolicyAtomicACKAndRollback` в `route_sync_test.go`: успешный ACK, сохранение других полей, отказ нового ACK и восстановление, отказ при неправильном digest.
+- **Коммиты:** `77d2be15c1037e6cf7b09e226a97cb141a392e18` (код), `824c74c5835a3624ea039e35db8bc8a1229c0a48` (тест).
+- **Граница:** новый writer — библиотечная функция в существующем процессе, не новый сервис. Он ещё не подключён к `m6-auto-registrar`; live Xray evidence также не подключён. **CI на commit теста ожидается; E2E и release не PASS.** Работающие службы: NONE.
