@@ -53,7 +53,10 @@ func TestSyncVerifiedRoutesFailClosedWhenAPIOrACKFails(t *testing.T){
  if err:=SyncVerifiedRoutes(ctx,store,goodPanel,goodXray,auth,successful);err!=nil{t.Fatal(err)}
  apiFail:=func(context.Context)([]PanelInbound,error){return nil,errors.New("panel failed")}
  if err:=SyncVerifiedRoutes(ctx,store,apiFail,goodXray,auth,successful);err==nil{t.Fatal("panel failure accepted")}
- if _,_,ok:=store.Snapshot();ok{t.Fatal("stale discovery remained enabled")}
+ if routes,_,ok:=store.Snapshot();!ok||routes["55535"]!="vpn"{t.Fatal("previously ACKed discovery lost on transient panel read error")}
+ xrayFail:=func(context.Context)([]EffectiveInbound,error){return nil,errors.New("runtime query timeout")}
+ if err:=SyncVerifiedRoutes(ctx,store,goodPanel,xrayFail,auth,successful);err==nil{t.Fatal("Xray query failure accepted")}
+ if routes,_,ok:=store.Snapshot();!ok||routes["55535"]!="vpn"{t.Fatal("previously ACKed discovery lost on transient Xray query error")}
  if err:=SyncVerifiedRoutes(ctx,store,goodPanel,goodXray,auth,func(context.Context,map[string][]PolicyBackend,map[string][]string,string)error{return errors.New("ACK missing")});err==nil{t.Fatal("missing ACK accepted")}
  if _,_,ok:=store.Snapshot();ok{t.Fatal("unconfirmed policy advertised")}
  if err:=SyncVerifiedRoutes(ctx,store,goodPanel,goodXray,auth,successful);err!=nil{t.Fatal(err)}
