@@ -32,3 +32,15 @@ func TestParseXrayConfiguredInboundsNegative(t *testing.T){
  if _,err:=ParseXrayConfiguredInbounds([]byte(`{"inbounds":[{"protocol":"vless","port":55535}]}`),func(int)(string,string,error){return "","",errors.New("not trusted")});err==nil{t.Fatal("untrusted resolution accepted")}
  if _,err:=ParseXrayConfiguredInbounds([]byte(`{"inbounds":[{"protocol":"vless","port":55535}]}`),func(int)(string,string,error){return "vpn","127.0.0.1:10000",nil});err==nil{t.Fatal("backend port mismatch accepted")}
 }
+
+func TestParseXrayConfiguredInboundsServiceListenersDoNotBlockVPN(t *testing.T){
+ cfg:=[]byte(`{"inbounds":[{"protocol":"socks","port":10811,"streamSettings":{"network":"tcp"}},{"protocol":"http","port":8080,"streamSettings":{"network":"tcp"}},{"protocol":"vless","port":30000,"streamSettings":{"network":"tcp"}},{"protocol":"vless","port":55535,"streamSettings":{"network":"splithttp"}},{"protocol":"trojan","port":55636,"streamSettings":{"network":"tcp"}}]}`)
+ count:=0
+ out,err:=ParseXrayConfiguredInbounds(cfg,func(port int)(string,string,error){
+  count++
+  if port!=30000&&port!=55535&&port!=55636{return "","",errors.New("service inbound reached resolver")}
+  return fmt.Sprintf("%d",port),fmt.Sprintf("127.0.0.1:%d",port),nil
+ })
+ if err!=nil{t.Fatal(err)}
+ if count!=3||len(out)!=3{t.Fatalf("expected exactly 3 VPN TCP backends, count=%d routes=%+v",count,out)}
+}
