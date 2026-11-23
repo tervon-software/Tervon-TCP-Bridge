@@ -95,3 +95,9 @@
 - **Причина:** прямой вызов Activator оставлял статический список сервисов, считанный при старте; coordinator перечитывает актуальные маршруты под общей блокировкой перед регистрацией.
 - **SOURCE commit:** `30b8bd9d7ed9b7b99203987af2eaaf452a0f8f6c`. Поведенческий тест координатора `TestRuntimePolicyCoordinatorEnrollmentUsesCurrentRoutes` — commit `a4f665c186bc1613c1218264e27b79e223678c0b`, CI на текущий Registrar commit ещё не подтверждён.
 - **Ограничения:** запуск Registrar по-прежнему проверяет существующий `server.json` и требует ненулевых маршрутов; автоматический `Sync()` не включён до подтверждённых live Xray/runtime bindings. Это **не** PASS динамической маршрутизации. Рабочие службы не затронуты.
+
+## 2026-11-24 — удаление startup snapshot сервисов из Registrar
+
+- В `cmd/m6-auto-registrar/main.go` удалены вызов `configuredServiceNames(root)` при запуске и передача статического `Services` в `HotACLActivator`. `RuntimePolicyCoordinator.Activate` теперь единственный источник перечня сервисов для enrollment, перечитывая текущую политику под mutex.
+- Не изменены Docker identity, CA, TLS endpoint, слушающий адрес, API HTTP enrollment и работающие службы. Существующий helper `configuredServiceNames` и его тесты пока сохранены; не удалять без ревизии.
+- SOURCE commit `a64e19fd33e20972a3bf6187e9e68bb22b84d897`. CI этого commit ещё не подтверждён; live 3x-ui/Xray Sync по-прежнему не подключён. M6 IN_PROGRESS.
