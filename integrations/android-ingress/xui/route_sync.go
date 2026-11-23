@@ -7,6 +7,7 @@ import (
  "encoding/json"
  "os"
  "sync"
+ "sort"
 )
 
 // RouteEvidenceSource is the existing provider adapter or runtime Xray
@@ -70,16 +71,18 @@ func SyncVerifiedRoutes(ctx context.Context,store *ConfirmedRouteStore,
   discovered[key]=v.Service
   routes[v.Service]=[]PolicyBackend{{Name:v.Service,Address:v.Address}}
  }
- // The complete candidate ACL must authorize only services that have a
- // resolved route; no missing ACL route can enter the acknowledged policy.
+ // Existing enrolled fingerprints receive the complete verified VPN TCP
+ // service set. Removed or disabled inbounds are pruned from new policy.
+ // No fingerprint is created or accepted from panel/runtime evidence.
  if len(authorized)==0{return fail(errors.New("empty Bridge ACL"))}
- for _,allowed:=range authorized{
+ names:=make([]string,0,len(services))
+ for service:=range services{names=append(names,service)}
+ sort.Strings(names)
+ auth:=make(map[string][]string,len(authorized))
+ for fingerprint,allowed:=range authorized{
   if len(allowed)==0{return fail(errors.New("empty Bridge ACL entry"))}
-  for _,service:=range allowed{
-   if !services[service]{return fail(errors.New("authorized Bridge service has no verified route"))}
-  }
+  auth[fingerprint]=append([]string(nil),names...)
  }
- auth:=copiedAuthorizations(authorized)
  digest,err:=PolicyGenerationDigest(routes,auth)
  if err!=nil{return fail(err)}
  return store.PublishAfterCoreACK(ctx,discovered,digest,func(ctx context.Context,expected string)error{
