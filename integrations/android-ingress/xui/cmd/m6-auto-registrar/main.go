@@ -181,13 +181,20 @@ func main() {
 			ExpectedLabelValue:expectedLabelValue,
         }.Confirm,
     }
+    // One owner serializes enrollment and future verified route generations.
+    // Route synchronization is not enabled until live Xray and panel evidence
+    // are bound; certificate activation remains operational meanwhile.
+    coordinator := &xui.RuntimePolicyCoordinator{
+        ConfigPath:filepath.Join(root,"config/server.json"),
+        Activator:activator,
+    }
     enrollment := &xui.BridgeEnrollmentHTTP{
         RemoteURL:remote, ServerName:serverName,
         ClientCAPEM:clientCAPEM, ServerCAPEM:serverCAPEM, ClientCAKey:signer,
         Activate:func(fingerprint string) error {
             ctx,cancel := context.WithTimeout(context.Background(),15*time.Second)
             defer cancel()
-            return activator.Activate(ctx,fingerprint)
+            return coordinator.Activate(ctx,fingerprint)
         },
     }
     handler,err := enrollment.Handler()
