@@ -1128,3 +1128,10 @@ Running main container remained `RUNNING=true` with image ID `sha256:ce484cdc64c
 - Implemented in existing `SyncVerifiedRoutes` (no new policy mechanism): sorted verified services replace each existing fingerprint's allowed-service list; disabled/deleted services are pruned. Existing ACL map remains unmodified. Source `5a7a3bdb37b74e148835abc3999d160f676deb40`.
 - Added two-generation unit test (three TCP ports then one, two existing certificates, digest, no input mutation) `1b27127d2d50bcf18d60eac0ff9a1a74a49aa9bc`.
 - Earlier regression commit `7387cc1b0e96b859d5554e0a5a176fcfb50c5a62` CI PASS: Go adapter run `45281699543`, runtime ACL run `45281699583`. New ACL package CI pending. Runtime Xray validation and candidate Decapsulator deployment still NOT VERIFIED; no running service or Android changes. M6 IN_PROGRESS.
+
+### 2026-11-24 — M6 single-owner process decision and integration gate
+
+- APPROVED: existing server `m6-auto-registrar` is the ONE owner process for Bridge certificate enrollment and verified TCP route/ACL synchronization; do not create a second daemon or independent policy writer.
+- Latest source tests for `1b27127d2d50bcf18d60eac0ff9a1a74a49aa9bc`: `M6 3X-UI adapter tests` PASS (`45282774970`), `M6 runtime ACL source check` PASS (`45282775087`). This is SOURCE CI only, not live E2E.
+- Source inspection: `cmd/m6-auto-registrar/main.go` currently calls `HotACLActivator.Activate` directly and snapshots `configuredServiceNames` at startup; `RuntimePolicyCoordinator` remains unconnected. `RoutePolicyApply` and `AppliedXrayEvidence` are required trusted callbacks, but no verified production binding to active Xray and candidate Decapsulator has been established. No unverified runtime source, Docker target, polling interval, or replacement policy writer may be invented.
+- Status: SINGLE PROCESS APPROVED; LIVE INTEGRATION BLOCKED pending verified runtime-evidence and candidate apply/ACK bindings. Production and Android UNCHANGED. No runtime PASS claimed.
