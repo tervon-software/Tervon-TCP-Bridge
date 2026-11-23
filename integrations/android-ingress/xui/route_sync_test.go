@@ -56,3 +56,36 @@ func TestSyncVerifiedRoutesFailClosedWhenAPIOrACKFails(t *testing.T){
  if err:=SyncVerifiedRoutes(ctx,store,goodPanel,goodXray,auth,successful);err!=nil{t.Fatal(err)}
  if _,_,ok:=store.Snapshot();!ok{t.Fatal("confirmed policy not restored")}
 }
+
+func TestSyncVerifiedRoutesIgnoresServiceInbounds(t *testing.T) {
+ ctx:=context.Background()
+ store:=new(ConfirmedRouteStore)
+ panel:=func(context.Context)([]PanelInbound,error){return []PanelInbound{
+  {Port:10811,Protocol:"socks",Network:"tcp",Enabled:true},
+  {Port:8080,Protocol:"http",Network:"tcp",Enabled:true},
+  {Port:30000,Protocol:"vless",Network:"tcp",Enabled:true},
+  {Port:55535,Protocol:"vless",Network:"splithttp",Enabled:true},
+  {Port:55636,Protocol:"trojan",Network:"tcp",Enabled:true},
+ },nil}
+ effective:=func(context.Context)([]EffectiveInbound,error){return []EffectiveInbound{
+  {Port:10811,Protocol:"socks",Network:"tcp",Service:"socks",Address:"127.0.0.1:10811"},
+  {Port:30000,Protocol:"vless",Network:"raw",Service:"30000",Address:"127.0.0.1:30000"},
+  {Port:55535,Protocol:"vless",Network:"xhttp",Service:"55535",Address:"127.0.0.1:55535"},
+  {Port:55636,Protocol:"trojan",Network:"tcp",Service:"55636",Address:"127.0.0.1:55636"},
+ },nil}
+ auth:=map[string][]string{strings.Repeat("a",64):{"30000","55535","55636"}}
+ called:=0
+ apply:=func(_ context.Context,routes map[string][]PolicyBackend,acl map[string][]string,digest string)error{
+  called++
+  if len(routes)!=3||routes["socks"]!=nil {t.Fatalf("service route leaked: %+v",routes)}
+  expected,err:=PolicyGenerationDigest(routes,acl)
+  if err!=nil||expected!=digest {t.Fatal("incorrect policy generation digest")}
+  return nil
+ }
+ if err:=SyncVerifiedRoutes(ctx,store,panel,effective,auth,apply);err!=nil {t.Fatal(err)}
+ got,_,ready:=store.Snapshot()
+ if !ready||called!=1||len(got)!=3||got["30000"]!="30000"||got["55535"]!="55535"||got["55636"]!="55636" {
+  t.Fatalf("unexpected confirmed routes: %+v, ready=%v, applied=%d",got,ready,called)
+ }
+ if _,exists:=got["10811"];exists {t.Fatal("SOCKS route published")}
+}
