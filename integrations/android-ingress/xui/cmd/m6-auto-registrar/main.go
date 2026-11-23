@@ -165,13 +165,12 @@ func main() {
     if err != nil { log.Fatal("existing client CA signer unavailable") }
     signer, err := clientCASigner(privatePEM)
     if err != nil { log.Fatal(err) }
-    services, err := configuredServiceNames(root)
-    if err != nil { log.Fatal(err) }
-    // Service names are used only for certificate ACL activation, not route selection.
+    // Enrollment services are resolved by RuntimePolicyCoordinator.Activate
+    // from the current policy under its lock, never cached at startup.
     remote, serverName, err := discoverBridgeEndpoint(root, containerID, serverCAPEM)
     if err != nil { log.Fatal(err) }
     activator := &xui.HotACLActivator{
-        Path:filepath.Join(root,"config/server.json"), Services:services,
+        Path:filepath.Join(root,"config/server.json"),
 		Digest:xui.FullPolicyConfigDigest,
 		Confirm:xui.DockerPolicyConfirmer{
             ContainerID:containerID,
