@@ -1109,3 +1109,9 @@ Running main container remained `RUNNING=true` with image ID `sha256:ce484cdc64c
 - Added `Client.SelectedBridgeInbounds(ctx)` as a read-only adapter using existing `ListInbounds`, `PanelInbound` and `FilterBridgePanelInbounds`; no hardcoded port mappings, no new API client.
 - Added HTTPS mock-panel test with simultaneous TCP VPN ports 30000/55535/55636 and excluded SOCKS/QUIC; source commits `0457c5251c3152383aa52beebccb5d62bd913c64`, `d8c140c4973dc522226c1f1cb3dd99d7070a52d1`.
 - Earlier TCP-only filter Go CI run `45187788091`: success; runtime ACL check was still in progress at time of inspection. New adapter CI pending. No live route publication, no Docker changes, no Android changes. M6 IN_PROGRESS.
+
+### 2026-11-23 — M6 Xray configured candidate filter
+
+- Confirmed prior 3x-ui API adapter CI on `d8c140c4973dc522226c1f1cb3dd99d7070a52d1`: Go adapter tests and runtime ACL source check both success (GitHub Actions runs `45187951474`, `45187951809`).
+- In `ParseXrayConfiguredInbounds`, skip non-VPN service listeners before invoking backend resolver. This prevents SOCKS/HTTP/dokodemo-door from blocking verification of valid VLESS/Trojan TCP inbounds. Source `818cfe1906df343789a5fe785ae10e52c1bdc301`; regression test `89d1ae5782a0f4f8eee666b3190629496aa9f8f8`.
+- New code CI pending; Xray parser remains CONFIGURED_ONLY and is not a live runtime proof. No production service changes, no Android changes. M6 IN_PROGRESS; live route generation ACK and concurrent E2E remain unverified.
