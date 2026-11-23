@@ -133,7 +133,16 @@ func (c *RuntimePolicyCoordinator) Activate(ctx context.Context, fingerprint str
  }
  sort.Strings(names)
  c.Activator.Services=names
- return c.Activator.Activate(ctx,fingerprint)
+ if err:=c.Activator.Activate(ctx,fingerprint);err!=nil{
+  // The activator may have applied a generation without obtaining its ACK.
+  // A previously confirmed digest must not authorize new Discovery then.
+  if c.Store!=nil{c.Store.Invalidate()}
+  return err
+ }
+ // Enrollment changes the complete routes+ACL generation digest. Do not
+ // advertise the prior generation until Sync verifies and ACKs the new one.
+ if c.Store!=nil{c.Store.Invalidate()}
+ return nil
 }
 
 // Sync reads the current ACL only after taking the same lock used by Activate.
