@@ -206,3 +206,19 @@ func TestM6AndroidPortSelectorFailsClosedOnAmbiguousOrMixedRoutes(t *testing.T) 
         t.Fatal("unique authorized port was not available")
     }
 }
+
+// A numeric service name must never override the actual backend port.
+func TestM6AndroidNumericNameCannotBypassBackendPort(t *testing.T) {
+    _, _, id := policyFixture()
+    acl := map[string][]string{hex.EncodeToString(id[:]): {"30000"}}
+    policy, err := NewRuntimePolicy(map[string][]Backend{
+        "30000": {{Address:"127.0.0.1:55636"}},
+    }, acl)
+    if err != nil { t.Fatal(err) }
+    if got,ok:=policy.Lookup(id,"30000");ok||len(got)>0 {
+        t.Fatal("numeric service name selected wrong backend port")
+    }
+    if got,ok:=policy.Lookup(id,"55636");!ok||len(got)!=1 {
+        t.Fatal("actual authorized backend port was not selectable")
+    }
+}

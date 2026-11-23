@@ -102,19 +102,20 @@ func (policy *RuntimePolicy) Lookup(id [sha256.Size]byte, service string) ([]Bac
     if policy == nil { return nil, false }
     snapshot := policy.current.Load()
     if snapshot == nil { return nil, false }
-    // Preserve the existing named-service contract for Linux clients.
-    if snapshot.authorized[id][service] {
+    // A canonical decimal service is the Android active inbound-port
+    // selector. Even a configured service literally named "30000" must
+    // not bypass its actual backend-port match.
+    port, err := strconv.Atoi(service)
+    if err != nil || port < 1 || port > 65535 || strconv.Itoa(port) != service {
+        // Preserve the existing opaque named-service contract for Linux.
+        if !snapshot.authorized[id][service] { return nil, false }
         backends := snapshot.routes[service]
         if len(backends) == 0 { return nil, false }
         return append([]Backend(nil), backends...), true
     }
     // Android selects the active Xray TCP profile's remote inbound port.
-    // Resolve that port ONLY against the current immutable generation of
-    // already-authorized Bridge routes. Never dial a client-supplied address.
-    port, err := strconv.Atoi(service)
-    if err != nil || port < 1 || port > 65535 || strconv.Itoa(port) != service {
-        return nil, false
-    }
+    // Resolve ONLY against currently authorized and verified routes;
+    // never dial a client-supplied address.
     var selected []Backend
     for name, backends := range snapshot.routes {
         if !snapshot.authorized[id][name] { continue }
