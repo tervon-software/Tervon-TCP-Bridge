@@ -43,6 +43,40 @@ jobs:
           test -s "$RUNNER_TEMP/tervon-bridge-m6-candidate"
           echo "M6_RELEASE_SOURCE_GO_RACE_VET_BUILD=PASS"
 
+  runtime-policy-v102:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact M6 source and release history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+          cache: false
+      - name: Apply exact v1.0.2 RuntimePolicy overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/tervon-v102-policy" 96c136702d10b6fb9a16aa2893f6b978e8b14e86
+          python3 integrations/android-ingress/runtime-acl/apply-runtime-policy-to-release-source.py --release-root "$RUNNER_TEMP/tervon-v102-policy" --check
+          python3 integrations/android-ingress/runtime-acl/apply-runtime-policy-to-release-source.py --release-root "$RUNNER_TEMP/tervon-v102-policy" --apply
+          grep -Fq 'A canonical decimal service is the Android active inbound-port' "$RUNNER_TEMP/tervon-v102-policy/prototype/runtime_policy.go"
+      - name: Test, race, vet, and build exact Docker binary source
+        working-directory: ${{ runner.temp }}/tervon-v102-policy/prototype
+        shell: bash
+        run: |
+          set -euo pipefail
+          gofmt -w bridge.go cmd/bridge/main.go runtime_policy.go runtime_policy_test.go runtime_policy_stream_test.go
+          go test -count=1 -timeout=240s ./...
+          go test -race -count=1 -timeout=300s ./...
+          go vet ./...
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "$RUNNER_TEMP/tervon-bridge-v102-dynamic" ./cmd/bridge
+          test -s "$RUNNER_TEMP/tervon-bridge-v102-dynamic"
+          sha256sum "$RUNNER_TEMP/tervon-bridge-v102-dynamic"
+          echo "M6_V102_DYNAMIC_BINARY_SOURCE=PASS"
+
   registrar-source:
     runs-on: ubuntu-latest
     timeout-minutes: 15
