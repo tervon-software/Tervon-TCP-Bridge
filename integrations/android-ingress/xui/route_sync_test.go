@@ -127,3 +127,45 @@ func TestRuntimePolicyCoordinatorSerializesACLAndRouteSync(t *testing.T) {
  if err:=<-synced;err!=nil{t.Fatal(err)}
  if _,_,ready:=store.Snapshot();!ready{t.Fatal("confirmed route generation absent")}
 }
+
+func TestSyncVerifiedRoutesExpandsAndPrunesExistingCertificateACL(t *testing.T){
+ ctx:=context.Background()
+ store:=new(ConfirmedRouteStore)
+ fpA:=strings.Repeat("a",64)
+ fpB:=strings.Repeat("b",64)
+ auth:=map[string][]string{fpA:{"30000"},fpB:{"30000"}}
+ ports:=[]int{30000,55535,55636}
+ panel:=func(context.Context)([]PanelInbound,error){
+  out:=make([]PanelInbound,0,len(ports))
+  for _,port:=range ports{out=append(out,PanelInbound{Port:port,Protocol:"vless",Network:"tcp",Enabled:true})}
+  return out,nil
+ }
+ applied:=func(context.Context)([]EffectiveInbound,error){
+  out:=make([]EffectiveInbound,0,len(ports))
+  for _,port:=range ports{out=append(out,EffectiveInbound{Port:port,Protocol:"vless",Network:"tcp",Service:fmt.Sprint(port),Address:fmt.Sprintf("127.0.0.1:%d",port)})}
+  return out,nil
+ }
+ appliedCalls:=0
+ apply:=func(_ context.Context,routes map[string][]PolicyBackend,acl map[string][]string,digest string)error{
+  appliedCalls++
+  if len(acl)!=2||len(routes)!=len(ports){t.Fatalf("unexpected policy size: %d %d",len(acl),len(routes))}
+  for _,fp:=range []string{fpA,fpB}{
+   if len(acl[fp])!=len(ports){t.Fatalf("missing verified port for %s: %+v",fp,acl[fp])}
+   for _,port:=range ports{
+    found:=false
+    for _,service:=range acl[fp]{if service==fmt.Sprint(port){found=true}}
+    if !found{t.Fatalf("port %d not authorized",port)}
+   }
+  }
+  expected,err:=PolicyGenerationDigest(routes,acl)
+  if err!=nil||digest!=expected{t.Fatal("invalid generation digest")}
+  return nil
+ }
+ if err:=SyncVerifiedRoutes(ctx,store,panel,applied,auth,apply);err!=nil{t.Fatal(err)}
+ if len(auth[fpA])!=1||len(auth[fpB])!=1{t.Fatal("mutated caller ACL")}
+ ports=[]int{30000}
+ if err:=SyncVerifiedRoutes(ctx,store,panel,applied,auth,apply);err!=nil{t.Fatal(err)}
+ if appliedCalls!=2{t.Fatal("missing atomic update")}
+ snapshot,_,ready:=store.Snapshot()
+ if !ready||len(snapshot)!=1||snapshot["30000"]!="30000"{t.Fatalf("stale removed port: %+v",snapshot)}
+}
