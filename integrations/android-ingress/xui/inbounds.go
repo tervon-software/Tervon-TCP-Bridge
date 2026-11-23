@@ -124,3 +124,15 @@ func (c *Client) ListInbounds(ctx context.Context) ([]InboundSnapshot, error) {
 // InboundPortKey is intentionally a plain validated port, not a backend
 // address; the route publisher must derive the address from trusted settings.
 func (i InboundSnapshot) InboundPortKey() string { return strconv.Itoa(i.Port) }
+
+// SelectedBridgeInbounds adapts the existing read-only 3x-ui API directly
+// to the server-side route coordinator. It never changes VPN or Android state.
+func (c *Client) SelectedBridgeInbounds(ctx context.Context) ([]PanelInbound,error) {
+ entries,err:=c.ListInbounds(ctx)
+ if err!=nil{return nil,err}
+ out:=make([]PanelInbound,0,len(entries))
+ for _,in:=range entries{
+  out=append(out,PanelInbound{Port:in.Port,Protocol:in.Protocol,Network:in.Network,Enabled:in.Enabled})
+ }
+ return FilterBridgePanelInbounds(out),nil
+}
