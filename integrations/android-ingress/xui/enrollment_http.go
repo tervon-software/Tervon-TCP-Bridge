@@ -23,7 +23,6 @@ import (
 type BridgeEnrollmentHTTP struct {
     RemoteURL string
     ServerName string
-    Service string
     ClientCAPEM []byte
     ServerCAPEM []byte // existing public server trust root for Android Bridge TLS
     ClientCAKey crypto.Signer
@@ -35,7 +34,6 @@ type bridgeDiscoveryResponse struct {
     Available bool `json:"available"`
     RemoteURL string `json:"remote_url,omitempty"`
     ServerName string `json:"server_name,omitempty"`
-    Service string `json:"service,omitempty"`
     ClientCA string `json:"client_ca,omitempty"`
     ServerCA string `json:"server_ca,omitempty"`
 }
@@ -49,7 +47,7 @@ type bridgeEnrollmentResponse struct {
 // terminated by a trusted reverse proxy, the parent must enforce HTTPS there.
 func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
     if h == nil || h.ClientCAKey == nil || h.Activate == nil ||
-        len(h.ClientCAPEM) == 0 || len(h.ServerCAPEM) == 0 || h.Service == "" || h.ServerName == "" {
+        len(h.ClientCAPEM) == 0 || len(h.ServerCAPEM) == 0 || h.ServerName == "" {
         return nil, errors.New("Bridge registration is not configured")
     }
     u, err := url.Parse(h.RemoteURL)
@@ -73,7 +71,7 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
             w.Header().Set("Content-Type", "application/json")
             _ = json.NewEncoder(w).Encode(bridgeDiscoveryResponse{
                 Available:true, RemoteURL:h.RemoteURL,
-                ServerName:h.ServerName,Service:h.Service,
+                ServerName:h.ServerName,
                 ClientCA:string(h.ClientCAPEM), ServerCA:string(h.ServerCAPEM),
             })
         case http.MethodPost:

@@ -20,7 +20,7 @@ func TestBridgeEnrollmentHTTPDiscoveryAndCSR(t *testing.T) {
     h := &BridgeEnrollmentHTTP{
         RemoteURL:"https://chosen-from-server.example:18443/v2/stream",
         ServerName:"chosen-from-server.example",
-        Service:"vpn",ClientCAPEM:caPEM,ServerCAPEM:caPEM,ClientCAKey:caKey,
+        ClientCAPEM:caPEM,ServerCAPEM:caPEM,ClientCAKey:caKey,
         Now:func()time.Time{return now},
         Activate:func(fp string)error{fingerprint=fp;return nil},
     }
@@ -32,9 +32,13 @@ func TestBridgeEnrollmentHTTPDiscoveryAndCSR(t *testing.T) {
     var data bridgeDiscoveryResponse
     if err:=json.Unmarshal(discovery.Body.Bytes(),&data);err!=nil{t.Fatal(err)}
     if !data.Available || data.RemoteURL!=h.RemoteURL || data.ServerName!=h.ServerName ||
-        data.Service!="vpn" || data.ClientCA!=string(caPEM) ||
+        data.ClientCA!=string(caPEM) ||
         data.ServerCA!=string(caPEM) {t.Fatal("incorrect discovery")}
     if fingerprint!="" {t.Fatal("discovery activated client")}
+    var fields map[string]any
+    if err:=json.Unmarshal(discovery.Body.Bytes(),&fields);err!=nil{t.Fatal(err)}
+    if _,hasService:=fields["service"];hasService{t.Fatal("registrar must not select a route")}
+
     request:=httptest.NewRequest(http.MethodPost,"https://sub.example/.well-known/tervon-bridge",bytes.NewReader(csr))
     request.Header.Set("Content-Type","application/pkcs10")
     response:=httptest.NewRecorder()
@@ -57,7 +61,7 @@ func TestBridgeEnrollmentHTTPRefusesUnsafeRequestsAndActivationFailures(t *testi
     csr,caPEM,caKey:=testCertificateInputs(t,now)
     base:=&BridgeEnrollmentHTTP{
         RemoteURL:"https://dynamic.example/v2/stream",ServerName:"dynamic.example",
-        Service:"vpn",ClientCAPEM:caPEM,ServerCAPEM:caPEM,ClientCAKey:caKey,
+        ClientCAPEM:caPEM,ServerCAPEM:caPEM,ClientCAKey:caKey,
         Activate:func(string)error{return io.ErrUnexpectedEOF},
     }
     h,err:=base.Handler();if err!=nil{t.Fatal(err)}
@@ -100,7 +104,7 @@ func TestBridgeEnrollmentHTTPWithoutServerRouteCoordination(t *testing.T) {
     activations := 0
     h := &BridgeEnrollmentHTTP{
         RemoteURL:"https://bridge.example/v2/stream",
-        ServerName:"bridge.example",Service:"vpn",
+        ServerName:"bridge.example",
         ClientCAPEM:caPEM,ServerCAPEM:caPEM,ClientCAKey:caKey,
         Activate:func(string)error{activations++;return nil},
     }
@@ -111,7 +115,7 @@ func TestBridgeEnrollmentHTTPWithoutServerRouteCoordination(t *testing.T) {
     if discovery.Code != http.StatusOK { t.Fatalf("Discovery failed without routing coordination: %d",discovery.Code) }
     var result map[string]any
     if err := json.Unmarshal(discovery.Body.Bytes(), &result); err != nil { t.Fatal(err) }
-    if result["service"] != "vpn" { t.Fatalf("configured Bridge service missing: %v",result) }
+    if _,present := result["service"]; present { t.Fatal("registrar must not publish route selection") }
     if _,present := result["tcp_routes"]; present { t.Fatal("legacy routes leaked into Discovery") }
     if _,present := result["policy_generation"]; present { t.Fatal("server policy leaked into Discovery") }
     if activations != 0 { t.Fatal("GET must not activate ACL") }

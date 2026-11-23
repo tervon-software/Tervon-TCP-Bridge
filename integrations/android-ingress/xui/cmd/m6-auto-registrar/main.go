@@ -57,12 +57,12 @@ type publishedBinding struct {
 
 // Resolve the public mTLS endpoint from the VERIFIED running Bridge container,
 // not from a second, manually maintained hostname or port list.
-func discoverBridgeEndpoint(root, containerID, service string, serverCAPEM []byte) (string, string, error) {
+func discoverBridgeEndpoint(root, containerID string, serverCAPEM []byte) (string, string, error) {
     data, err := os.ReadFile(filepath.Join(root, "config/server.json"))
     if err != nil { return "", "", err }
     var cfg bridgeRuntimeConfig
     if err = json.Unmarshal(data, &cfg); err != nil { return "", "", err }
-    if cfg.Mode != "server" || len(cfg.Routes[service]) == 0 {
+    if cfg.Mode != "server" || len(cfg.Routes) == 0 {
         return "", "", errors.New("existing Bridge VPN route unavailable")
     }
     _, internalPort, err := net.SplitHostPort(cfg.Listen)
@@ -160,12 +160,11 @@ func main() {
     if err != nil { log.Fatal(err) }
     services, err := configuredServiceNames(root)
     if err != nil { log.Fatal(err) }
-    // The service identifier is opaque; no VPN protocol is privileged here.
-    service := services[0]
-    remote, serverName, err := discoverBridgeEndpoint(root, containerID, service, serverCAPEM)
+    // Service names are used only for certificate ACL activation, not route selection.
+    remote, serverName, err := discoverBridgeEndpoint(root, containerID, serverCAPEM)
     if err != nil { log.Fatal(err) }
     activator := &xui.HotACLActivator{
-        Path:filepath.Join(root,"config/server.json"), Service:service, Services:services,
+        Path:filepath.Join(root,"config/server.json"), Services:services,
 		Digest:xui.FullPolicyConfigDigest,
 		Confirm:xui.DockerPolicyConfirmer{
             ContainerID:containerID,
@@ -176,7 +175,7 @@ func main() {
         }.Confirm,
     }
     enrollment := &xui.BridgeEnrollmentHTTP{
-        RemoteURL:remote, ServerName:serverName, Service:service,
+        RemoteURL:remote, ServerName:serverName,
         ClientCAPEM:clientCAPEM, ServerCAPEM:serverCAPEM, ClientCAKey:signer,
         Activate:func(fingerprint string) error {
             ctx,cancel := context.WithTimeout(context.Background(),15*time.Second)

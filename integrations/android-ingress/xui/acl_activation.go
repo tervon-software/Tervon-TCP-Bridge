@@ -31,7 +31,7 @@ type HotACLActivator struct {
 }
 
 func (a *HotACLActivator) Activate(ctx context.Context, fingerprint string) error {
-	if a == nil || a.Confirm == nil || a.Service == "" || a.Path == "" {
+	if a == nil || a.Confirm == nil || (a.Service == "" && len(a.Services) == 0) || a.Path == "" {
 		return errors.New("Bridge ACL activation not configured")
 	}
 	if err := ctx.Err(); err != nil {
