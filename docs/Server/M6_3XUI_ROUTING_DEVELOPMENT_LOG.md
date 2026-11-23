@@ -114,3 +114,9 @@
 - `cmd/m6-auto-registrar/main.go`: в существующем `RuntimePolicyCoordinator` добавлены `ConfirmedRouteStore` и `RoutePolicyApply`, использующий `ApplyCompletePolicy` с прежним `DockerPolicyConfirmer` из `HotACLActivator`. Это одна точка записи и тот же точный ACK; дополнительных процессов/слушателей нет.
 - Коммит `18967ae9619916b983c6ee366bc70ccbbbbda015`.
 - **НЕ ПОДКЛЮЧЕНО:** `Panel`, `Applied` и запуск `Sync`. Не использовать configured-only Xray parser или диагностический скрипт с фиксированным PID как доказательство live runtime. Поэтому автоматическая синхронизация всё ещё НЕ PASS. CI нового commit ожидается. Работающие службы: NONE.
+
+## 2026-11-24 — комплексный source integration test для coordinator→writer→ACK
+
+- Добавлен `TestCoordinatorSyncAppliesFullGenerationWithRealAtomicWriter` в `xui/route_sync_test.go`: три TCP inbound (VLESS TCP 30000, VLESS XHTTP 55535, Trojan TCP 55636), `RuntimePolicyCoordinator.Sync`, `ApplyCompletePolicy`, атомарный файл, exact digest ACK, подтверждённый `ConfirmedRouteStore` и обновлённый ACL существующего fingerprint. Используется тестовый callback ACK, **не** live Docker.
+- Source commit `74a22def3eadf222223558670792c83fe5048b80`; CI ожидается.
+- Ограничение: источник live Xray и 3x-ui URL на Homeserver не подтверждены, поэтому production Sync пока не включён. Это не E2E PASS. Рабочие службы: NONE.
