@@ -66,3 +66,11 @@
 5. Документировать commit, конкретные проверки и PASS/FAIL после реализации. **Нынешний статус: SOURCE COMPONENTS PRESENT; LIVE AUTO SYNC NOT PASS; XHTTP 55535 NOT PASS; PRODUCTION UNCHANGED ЭТИМ ДОКУМЕНТАЦИОННЫМ ЭТАПОМ.**
 
 **Файлы, изменённые данным этапом:** только этот новый журнал. **Тесты:** документационная сверка GitHub/операторской истории; код и runtime не тестировались этим этапом. **Воздействие на службы:** NONE.
+
+## 2026-11-24 — устранение потери подтверждённого Discovery при временном отказе источников (SOURCE)
+
+- **УТВЕРЖДЁННЫЙ КОНТРАКТ:** изолировать временные отказы 3x-ui API и Xray evidence; не приравнивать их к подтверждённому удалению inbound. Не публиковать неподтверждённые новые маршруты; неопределённый исход policy apply/ACK по-прежнему закрывает новое Discovery.
+- **ИЗМЕНЕНО:** `integrations/android-ingress/xui/route_sync.go`: ошибки вызова `panel(ctx)` и `applied(ctx)` теперь возвращают ошибку синхронизации **без** `ConfirmedRouteStore.Invalidate()`. Ошибки фактического reconciliation, недостающие подтверждённые inbound и неоднозначный policy ACK по-прежнему обрабатываются fail-closed. Старое поколение сохраняется только если оно ранее получило ACK.
+- **ТЕСТЫ ИЗМЕНЕНЫ:** `integrations/android-ingress/xui/route_sync_test.go`: после успешного ACK временные сбои panel и Xray read сохраняют подтверждённый snapshot; ошибка ACK его инвалидирует.
+- **SOURCE commits:** `a02652f8316b7288d4e3cd9dabd63c548f07f93c` (code), `1d348a1415f1cc6cc4a2dcff5bdba500797307b5` (tests). GitHub Actions на момент записи: runs `45288755257`, `45288755297` запущены на **предыдущем** code commit `a02652f`, поэтому **не доказывают PASS тестового commit**. Полная проверка на финальном SHA ещё НЕ ПОДТВЕРЖДЕНА.
+- **Статус:** SOURCE IMPLEMENTED; CI FINAL SHA PENDING; live Registrar не подключён к coordinator, полная автоматическая маршрутизация НЕ PASS. **Влияние на работающие службы: NONE**.
