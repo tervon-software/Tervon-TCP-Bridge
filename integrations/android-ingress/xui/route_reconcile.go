@@ -63,10 +63,19 @@ func bridgeEligibleProtocol(protocol string) bool {
 // FilterBridgePanelInbounds excludes service-unrelated panel inbounds before
 // reconciliation. It does not authorize a route: applied Xray evidence,
 // backend validation and the core policy generation ACK are still mandatory.
+func bridgeEligibleTCPNetwork(network string) bool {
+ switch canonicalInboundNetwork(strings.TrimSpace(network)) {
+ case "tcp", "ws", "grpc", "httpupgrade", "http", "h2", "xhttp":
+  return true
+ default:
+  return false
+ }
+}
+
 func FilterBridgePanelInbounds(in []PanelInbound) []PanelInbound {
  out:=make([]PanelInbound,0,len(in))
  for _,p:=range in {
-  if bridgeEligibleProtocol(p.Protocol) {out=append(out,p)}
+  if bridgeEligibleProtocol(p.Protocol) && bridgeEligibleTCPNetwork(p.Network) {out=append(out,p)}
  }
  return out
 }
