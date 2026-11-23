@@ -86,3 +86,23 @@ func TestReconcileInboundsAliasDoesNotAuthorizeUnselectedBackend(t *testing.T) {
  if err!=nil{t.Fatal(err)}
  if len(got)!=1||got[0].Service!="selected"{t.Fatalf("unexpected route selection: %+v",got)}
 }
+
+func TestFilterBridgePanelInbounds(t *testing.T) {
+ in:=[]PanelInbound{
+  {Port:10811,Protocol:"socks",Network:"tcp",Enabled:true},
+  {Port:8080,Protocol:"http",Network:"tcp",Enabled:true},
+  {Port:1234,Protocol:"dokodemo-door",Network:"tcp",Enabled:true},
+  {Port:30000,Protocol:"vless",Network:"raw",Enabled:true},
+  {Port:55535,Protocol:"VLESS",Network:"splithttp",Enabled:true},
+  {Port:55636,Protocol:"trojan",Network:"tcp",Enabled:true},
+  {Port:8443,Protocol:"shadowsocks",Network:"tcp",Enabled:true},
+  {Port:9999,Protocol:"unknown",Network:"tcp",Enabled:true},
+ }
+ got:=FilterBridgePanelInbounds(in)
+ if len(got)!=4 {t.Fatalf("expected 4 VPN inbounds, got %+v",got)}
+ for i,port:=range []int{30000,55535,55636,8443} {
+  if got[i].Port!=port {t.Fatalf("index %d: got port %d, want %d",i,got[i].Port,port)}
+ }
+ // Filter does not alter provider evidence or select disabled services.
+ if len(in)!=8 || in[0].Protocol!="socks" {t.Fatal("input mutated")}
+}
