@@ -108,3 +108,9 @@
 - Тест `TestCoordinatorEnrollmentInvalidatesPreviousDiscoveryGeneration`: подтверждённый snapshot → enrollment второго fingerprint → snapshot больше не ready; новый ACL сохранён.
 - Коммиты `bf77b1dfcce2d916f1445c16e7a0de72f5e9efe4` и `2c9a9310522773749e7760cc7b980cbf9efc59cd`.
 - **Важная граница:** текущий Registrar пока не подключает Store и Sync. Это исправление не означает, что после enrollment автоматически публикуется новое поколение. Полная интеграция и E2E не PASS; CI текущего кода ожидается. Работающие службы: NONE.
+
+## 2026-11-24 — Registrar привязан к Store и полному policy writer (без включения Sync)
+
+- `cmd/m6-auto-registrar/main.go`: в существующем `RuntimePolicyCoordinator` добавлены `ConfirmedRouteStore` и `RoutePolicyApply`, использующий `ApplyCompletePolicy` с прежним `DockerPolicyConfirmer` из `HotACLActivator`. Это одна точка записи и тот же точный ACK; дополнительных процессов/слушателей нет.
+- Коммит `18967ae9619916b983c6ee366bc70ccbbbbda015`.
+- **НЕ ПОДКЛЮЧЕНО:** `Panel`, `Applied` и запуск `Sync`. Не использовать configured-only Xray parser или диагностический скрипт с фиксированным PID как доказательство live runtime. Поэтому автоматическая синхронизация всё ещё НЕ PASS. CI нового commit ожидается. Работающие службы: NONE.
