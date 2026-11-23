@@ -1083,3 +1083,10 @@ Running main container remained `RUNNING=true` with image ID `sha256:ce484cdc64c
 - **Добавлены тесты:** фильтрация служебных протоколов, VLESS TCP/XHTTP, Trojan TCP, Shadowsocks TCP и отсутствие SOCKS в опубликованной generation. Тесты **ещё не запускались**; `SOURCE_ONLY`, не PASS. Live coordinator/automatic polling и временные отказы API остаются отдельными незакрытыми вопросами M6; текущий `SyncVerifiedRoutes` всё ещё инвалидирует snapshot при ошибке API.
 - **Изменённые файлы:** `xui/route_reconcile.go`, `xui/route_sync.go`, `xui/route_reconcile_test.go`, `xui/route_sync_test.go`, этот журнал.
 - **Среда:** GitHub API, ветка `work/m6-android-ingress`, исходный HEAD `7a48737bda553b3f93e819ecea0da1c1daf78a32`; итоговый commit см. Git history. **Влияние на работающие службы: NONE**. Нет Android APK/Docker/3x-ui/Xray изменений, реальных сетевых испытаний или подтверждённого PASS.
+
+### 2026-11-23 — M6 inbound filter CI evidence
+
+- Source commit tested: `6a414dce0a154bec41cf04d2cca7c8e5fa92aae7` (filter, sync hook and both new test files).
+- GitHub Actions `M6 3X-UI adapter tests` run `45177282293`: **PASS**, `xui-test` / `Unit tests with race detector` completed/success.
+- GitHub Actions `M6 runtime ACL source check (released v1.0.1)` run `45177282427`: **PASS**, completed/success.
+- Documentation-only commit after this tested SHA does not change the filter implementation. These results confirm source CI, **not** deployed coordinator, dynamic API polling, backend E2E or Android internet. Working services unchanged.
