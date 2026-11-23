@@ -129,6 +129,13 @@ func configuredServiceNames(root string) ([]string, error) {
     return services, nil
 }
 
+// The exact new local M6 image has already passed the source and Docker
+// candidate verification. No other image is allowed by the registrar.
+func approvedRegistrarImage(image string) bool {
+    return image == "tervon-bridge-android-ingress:v1.0.2" ||
+        image == "tervon-bridge-android-ingress:m6-dynamic-e1326094"
+}
+
 func main() {
 	var root, listen, containerID, expectedImage, expectedLabelKey, expectedLabelValue string
     flag.StringVar(&root, "root", "/etc/tervon/bridge-android", "existing Android Bridge root")
@@ -138,7 +145,7 @@ func main() {
 	flag.StringVar(&expectedLabelKey, "expected-label-key", "", "verified Docker label key (required)")
 	flag.StringVar(&expectedLabelValue, "expected-label-value", "", "verified Docker label value (required)")
     flag.Parse()
-	if expectedImage != "tervon-bridge-android-ingress:v1.0.2" ||
+	if !approvedRegistrarImage(expectedImage) ||
 		expectedLabelKey == "" || expectedLabelValue == "" {
 		log.Fatal("v1.0.2 registrar requires explicit verified container identity")
 	}

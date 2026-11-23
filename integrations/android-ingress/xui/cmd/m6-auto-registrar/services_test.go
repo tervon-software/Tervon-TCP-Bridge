@@ -46,3 +46,22 @@ func TestConfiguredServiceNamesFailsClosed(t *testing.T) {
         }
     }
 }
+
+// The certificate registrar accepts only preapproved source-verified images.
+// It does not select a VPN service or decide a backend.
+func TestApprovedRegistrarImageExactIdentity(t *testing.T) {
+    for _, tag := range []string{
+        "tervon-bridge-android-ingress:v1.0.2",
+        "tervon-bridge-android-ingress:m6-dynamic-e1326094",
+    } {
+        if !approvedRegistrarImage(tag) { t.Fatalf("approved image rejected: %s",tag) }
+    }
+    for _, tag := range []string{
+        "", "tervon-bridge-android-ingress:latest",
+        "tervon-bridge-android-ingress:m6-dynamic",
+        "tervon-bridge-android-ingress:m6-runtime-acl",
+        "tervon-bridge-android-ingress:v1.0.3",
+    } {
+        if approvedRegistrarImage(tag) { t.Fatalf("unapproved image accepted: %s",tag) }
+    }
+}
