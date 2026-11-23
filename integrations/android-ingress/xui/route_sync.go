@@ -46,6 +46,8 @@ func SyncVerifiedRoutes(ctx context.Context,store *ConfirmedRouteStore,
  }
  p,err:=panel(ctx)
  if err!=nil{return fail(errors.New("panel inbound evidence unavailable"))}
+ // Ignore service-unrelated panel inbounds; never publish them as Bridge routes.
+ p=FilterBridgePanelInbounds(p)
  e,err:=applied(ctx)
  if err!=nil{return fail(errors.New("applied Xray evidence unavailable"))}
  verified,err:=ReconcileInbounds(p,e)
