@@ -172,3 +172,48 @@ func TestSyncVerifiedRoutesExpandsAndPrunesExistingCertificateACL(t *testing.T){
  snapshot,_,ready:=store.Snapshot()
  if !ready||len(snapshot)!=1||snapshot["30000"]!="30000"{t.Fatalf("stale removed port: %+v",snapshot)}
 }
+
+func TestApplyCompletePolicyAtomicACKAndRollback(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"server.json")
+ fp:=strings.Repeat("a",64)
+ original:=fmt.Sprintf(`{"mode":"server","listen":":443","routes":{"30000":[{"Name":"30000","Address":"127.0.0.1:30000"}]},"authorized":{"%s":["30000"]}}`,fp)
+ if err:=os.WriteFile(path,[]byte(original),0600);err!=nil{t.Fatal(err)}
+ routes:=map[string][]PolicyBackend{"55535":{{Name:"55535",Address:"127.0.0.1:55535"}}}
+ acl:=map[string][]string{fp:{"55535"}}
+ digest,err:=PolicyGenerationDigest(routes,acl)
+ if err!=nil{t.Fatal(err)}
+ calls:=0
+ confirm:=func(_ context.Context,got string)error{
+  calls++
+  data,err:=os.ReadFile(path)
+  if err!=nil{t.Fatal(err)}
+  actual,err:=FullPolicyConfigDigest(data)
+  if err!=nil||actual!=got{t.Fatalf("ACK digest mismatch: %v",err)}
+  return nil
+ }
+ if err:=ApplyCompletePolicy(context.Background(),path,routes,acl,digest,confirm);err!=nil{t.Fatal(err)}
+ if calls!=1{t.Fatal("missing ACK")}
+ data,err:=os.ReadFile(path)
+ if err!=nil||!strings.Contains(string(data),`"listen": ":443"`){t.Fatal("unrelated server fields lost")}
+ prior:=append([]byte(nil),data...)
+ failed:=func(_ context.Context,got string)error{
+  calls++
+  if got==digest{return errors.New("missing ACK")}
+  return nil
+ }
+ nextRoutes:=map[string][]PolicyBackend{"55636":{{Name:"55636",Address:"127.0.0.1:55636"}}}
+ nextACL:=map[string][]string{fp:{"55636"}}
+ nextDigest,err:=PolicyGenerationDigest(nextRoutes,nextACL)
+ if err!=nil{t.Fatal(err)}
+ failed=func(_ context.Context,got string)error{
+  calls++
+  if got==nextDigest{return errors.New("missing ACK")}
+  if got!=digest{t.Fatal("rollback ACK digest mismatch")}
+  return nil
+ }
+ if err:=ApplyCompletePolicy(context.Background(),path,nextRoutes,nextACL,nextDigest,failed);err==nil{t.Fatal("unconfirmed policy accepted")}
+ restored,err:=os.ReadFile(path)
+ if err!=nil||string(restored)!=string(prior){t.Fatal("previous policy not restored")}
+ if calls!=3{t.Fatalf("unexpected ACK calls: %d",calls)}
+ if err:=ApplyCompletePolicy(context.Background(),path,nextRoutes,nextACL,digest,confirm);err==nil{t.Fatal("mismatched digest accepted")}
+}
