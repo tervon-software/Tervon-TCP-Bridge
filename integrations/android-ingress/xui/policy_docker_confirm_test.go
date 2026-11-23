@@ -28,6 +28,21 @@ func TestPolicyACKInLogsExactPostSignalGeneration(t *testing.T){
  if !policyACKInLogs([]byte(newer+" M6_POLICY_RELOAD=PASS digest="+d+"\n"),start,d){
   t.Fatal("rejected exact post-signal policy ACK")
  }
+ goPrefix:="2026/11/23 02:18:34 "
+ if !policyACKInLogs([]byte(newer+" "+goPrefix+"M6_POLICY_RELOAD=PASS digest="+d+"\n"),start,d){
+  t.Fatal("rejected real Docker+Go timestamp format")
+ }
+ for _,entry:=range []string{
+  old+" "+goPrefix+"M6_POLICY_RELOAD=PASS digest="+d,
+  newer+" "+goPrefix+"M6_ACL_RELOAD=PASS digest="+d,
+  newer+" "+goPrefix+"M6_POLICY_RELOAD=PASS digest="+strings.Repeat("b",64),
+  newer+" "+goPrefix+"prefix M6_POLICY_RELOAD=PASS digest="+d,
+  newer+" "+goPrefix+"M6_POLICY_RELOAD=PASS digest="+d+" suffix",
+  newer+" 2026/13/23 02:18:34 M6_POLICY_RELOAD=PASS digest="+d,
+  newer+" 2026/11/23 02:18:34  M6_POLICY_RELOAD=PASS digest="+d,
+ } {
+  if policyACKInLogs([]byte(entry),start,d){t.Fatalf("accepted invalid Docker+Go ACK: %s",entry)}
+ }
 }
 
 func policyDockerFixture(t *testing.T,inspectBody,logBody string)(DockerPolicyConfirmer,string){

@@ -75,7 +75,15 @@ func policyACKInLogs(output []byte,after time.Time,digest string)bool{
   if !ok{continue}
   at,err:=time.Parse(time.RFC3339Nano,stamp)
   if err!=nil||at.Before(after){continue}
-  if strings.TrimSpace(entry)==expected{return true}
+  message:=strings.TrimSpace(entry)
+  if message==expected{return true}
+  // Bridge emits the same ACK with the standard Go log prefix after Docker's
+  // own RFC3339 timestamp. Accept only this exact timestamp format and exact
+  // ACK payload; never accept substrings or stale Docker timestamps.
+  if len(message)>20 && message[19]==' ' {
+   if _,parseErr:=time.Parse("2006/01/02 15:04:05",message[:19]);parseErr==nil &&
+    message[20:]==expected{return true}
+  }
  }
  return false
 }
