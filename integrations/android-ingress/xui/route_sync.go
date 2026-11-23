@@ -49,11 +49,14 @@ func SyncVerifiedRoutes(ctx context.Context,store *ConfirmedRouteStore,
   return fail(errors.New("route synchronization dependency missing"))
  }
  p,err:=panel(ctx)
- if err!=nil{return fail(errors.New("panel inbound evidence unavailable"))}
+ // A failed read does not establish that the previously ACKed generation
+ // changed. Preserve that generation; never apply unverified new routes.
+ if err!=nil{return errors.New("panel inbound evidence unavailable")}
  // Ignore service-unrelated panel inbounds; never publish them as Bridge routes.
  p=FilterBridgePanelInbounds(p)
  e,err:=applied(ctx)
- if err!=nil{return fail(errors.New("applied Xray evidence unavailable"))}
+ // A temporary runtime-query failure is not proof of a changed Xray listener.
+ if err!=nil{return errors.New("applied Xray evidence unavailable")}
  verified,err:=ReconcileInbounds(p,e)
  if err!=nil{return fail(err)}
  active:=0
