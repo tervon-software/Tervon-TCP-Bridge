@@ -1097,3 +1097,9 @@ Running main container remained `RUNNING=true` with image ID `sha256:ce484cdc64c
 - **РЕАЛИЗОВАНО В ИСХОДНИКАХ:** `RuntimePolicyCoordinator` в `integrations/android-ingress/xui/route_sync.go`. Общий mutex защищает `Activate` и `Sync`; `Sync` читает ACL из актуального `server.json` под блокировкой и вызывает существующий `SyncVerifiedRoutes` с подтверждением поколения. В тестах проверяется одновременная регистрация и обновление маршрутов без потери нового/старого ACL.
 - **ОГРАНИЧЕНИЕ:** это компонент для одного owner process, **не межпроцессный lock**. Работающий `m6-auto-registrar` пока не переведён на него; применяющий полную конфигурацию callback и доказанный runtime-Xray evidence source пока не подключены. Запрещено запускать второй процесс-writer до общей интеграции.
 - **Статус:** SOURCE IMPLEMENTED, CI TEST PENDING, HOST UNCHANGED, LIVE AUTO SYNC NOT IMPLEMENTED, PASS NOT CLAIMED. Исходный HEAD перед этапом `50f87b4f2be841f790eadf7599a215539b5a1b78`; исходники/тесты commits `7f9a82842031c300e1e77aead57064765a69c676`, `86f118de70a65f91971c25e2c131f6bf73c8e332`.
+
+### 2026-11-23 — M6 TCP-only inbound eligibility
+
+- В соответствии с требованием одновременной работы VLESS TCP, VLESS XHTTP и Trojan TCP фильтр серверных inbound теперь исключает UDP/QUIC/неподдерживаемые транспорты, не исключая подтверждённые TCP-совместимые сети.
+- Source `dda4ffcba5f6ab81bbb4bf2a5ad1391af0e6f650`, test `20d44a4f69d526dc3588bb7abc26808ed875df80`; CI pending. Это не подключение к live API/Decapsulator; никаких изменений служб.
+- Портовая динамическая маршрутизация и одновременная нагрузка остаются IN_PROGRESS до проверки реального координатора и E2E.
