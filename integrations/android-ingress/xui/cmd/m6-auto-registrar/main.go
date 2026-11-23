@@ -183,9 +183,17 @@ func main() {
     // One owner serializes enrollment and future verified route generations.
     // Route synchronization is not enabled until live Xray and panel evidence
     // are bound; certificate activation remains operational meanwhile.
+    // The existing Docker verifier is the only policy ACK authority.
+    // No route sync is started without live panel and Xray evidence.
+    policyPath := filepath.Join(root,"config/server.json")
     coordinator := &xui.RuntimePolicyCoordinator{
-        ConfigPath:filepath.Join(root,"config/server.json"),
+        ConfigPath:policyPath,
+        Store:new(xui.ConfirmedRouteStore),
         Activator:activator,
+        Apply:func(ctx context.Context,routes map[string][]xui.PolicyBackend,
+            authorized map[string][]string,digest string)error{
+            return xui.ApplyCompletePolicy(ctx,policyPath,routes,authorized,digest,activator.Confirm)
+        },
     }
     enrollment := &xui.BridgeEnrollmentHTTP{
         RemoteURL:remote, ServerName:serverName,
