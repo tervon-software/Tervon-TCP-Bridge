@@ -1090,3 +1090,10 @@ Running main container remained `RUNNING=true` with image ID `sha256:ce484cdc64c
 - GitHub Actions `M6 3X-UI adapter tests` run `45177282293`: **PASS**, `xui-test` / `Unit tests with race detector` completed/success.
 - GitHub Actions `M6 runtime ACL source check (released v1.0.1)` run `45177282427`: **PASS**, completed/success.
 - Documentation-only commit after this tested SHA does not change the filter implementation. These results confirm source CI, **not** deployed coordinator, dynamic API polling, backend E2E or Android internet. Working services unchanged.
+
+### 2026-11-23 — M6 unified RuntimePolicy coordinator (source stage)
+
+- **СОГЛАСОВАНО:** один последовательный процесс обновления полной RuntimePolicy для регистрации Android ACL и синхронизации маршрутов; никаких независимых writers.
+- **РЕАЛИЗОВАНО В ИСХОДНИКАХ:** `RuntimePolicyCoordinator` в `integrations/android-ingress/xui/route_sync.go`. Общий mutex защищает `Activate` и `Sync`; `Sync` читает ACL из актуального `server.json` под блокировкой и вызывает существующий `SyncVerifiedRoutes` с подтверждением поколения. В тестах проверяется одновременная регистрация и обновление маршрутов без потери нового/старого ACL.
+- **ОГРАНИЧЕНИЕ:** это компонент для одного owner process, **не межпроцессный lock**. Работающий `m6-auto-registrar` пока не переведён на него; применяющий полную конфигурацию callback и доказанный runtime-Xray evidence source пока не подключены. Запрещено запускать второй процесс-writer до общей интеграции.
+- **Статус:** SOURCE IMPLEMENTED, CI TEST PENDING, HOST UNCHANGED, LIVE AUTO SYNC NOT IMPLEMENTED, PASS NOT CLAIMED. Исходный HEAD перед этапом `50f87b4f2be841f790eadf7599a215539b5a1b78`; исходники/тесты commits `7f9a82842031c300e1e77aead57064765a69c676`, `86f118de70a65f91971c25e2c131f6bf73c8e332`.
