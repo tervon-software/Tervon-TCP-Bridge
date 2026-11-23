@@ -125,3 +125,64 @@ func TestM6PolicyActiveHTTP2StreamSurvivesRouteAndACLSwap(t *testing.T) {
     case <-time.After(5*time.Second):t.Fatal("existing stream did not close")
     }
 }
+
+
+func TestM6AndroidPortSelectorThreeH2Backends(t *testing.T) {
+    a, stopA := policyEcho(t, 'X')
+    defer stopA()
+    b, stopB := policyEcho(t, 'V')
+    defer stopB()
+    c, stopC := policyEcho(t, 'T')
+    defer stopC()
+    _, portA, _ := net.SplitHostPort(a)
+    _, portB, _ := net.SplitHostPort(b)
+    _, portC, _ := net.SplitHostPort(c)
+    certificate, roots := cert(t)
+    id := sha256.Sum256(certificate.Certificate[0])
+    acl := map[string][]string{hex.EncodeToString(id[:]): {"xhttp", "vless-tcp", "trojan-tcp"}}
+    routes := map[string][]Backend{
+        "xhttp": {{Name:"xhttp", Address:a}},
+        "vless-tcp": {{Name:"vless-tcp", Address:b}},
+        "trojan-tcp": {{Name:"trojan-tcp", Address:c}},
+    }
+    policy, err := NewRuntimePolicy(routes, acl)
+    if err != nil { t.Fatal(err) }
+    server := &Server{Routes:routes, PolicyLookup:policy.Lookup}
+    https := httptest.NewUnstartedServer(server)
+    https.EnableHTTP2 = true
+    https.TLS = &tls.Config{
+        MinVersion:tls.VersionTLS13, Certificates:[]tls.Certificate{certificate},
+        ClientAuth:tls.RequireAndVerifyClientCert, ClientCAs:roots,
+        NextProtos:[]string{"h2"},
+    }
+    https.StartTLS()
+    defer https.Close()
+    for _, item := range []struct {port string; label byte}{
+        {portA,'X'}, {portB,'V'}, {portC,'T'},
+    } {
+        t.Run(item.port,func(t *testing.T) {
+            client := NewClient(&tls.Config{
+                MinVersion:tls.VersionTLS13, RootCAs:roots,
+                ServerName:"example.com", Certificates:[]tls.Certificate{certificate},
+                NextProtos:[]string{"h2"},
+            }, https.URL+"/v1/stream", item.port)
+            defer client.HTTP.CloseIdleConnections()
+            local, peer := net.Pipe()
+            done := make(chan error,1)
+            go func(){done <- client.Handle(local)}()
+            defer peer.Close()
+            if err := peer.SetDeadline(time.Now().Add(15*time.Second)); err != nil { t.Fatal(err) }
+            payload := []byte("profile-dynamic")
+            if _,err := peer.Write(payload);err != nil {t.Fatal(err)}
+            received := make([]byte,len(payload)+1)
+            if _,err := io.ReadFull(peer,received);err != nil {t.Fatal(err)}
+            expected := append([]byte{item.label},payload...)
+            if !bytes.Equal(received,expected) {t.Fatalf("port %s reached wrong backend",item.port)}
+            _ = peer.Close()
+            select {
+            case <-done:
+            case <-time.After(5*time.Second):t.Fatal("port-selected H2 stream did not terminate")
+            }
+        })
+    }
+}
