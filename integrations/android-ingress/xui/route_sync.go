@@ -4,6 +4,9 @@ import (
  "context"
  "errors"
  "strconv"
+ "encoding/json"
+ "os"
+ "sync"
 )
 
 // RouteEvidenceSource is the existing provider adapter or runtime Xray
@@ -82,4 +85,48 @@ func SyncVerifiedRoutes(ctx context.Context,store *ConfirmedRouteStore,
  return store.PublishAfterCoreACK(ctx,discovered,digest,func(ctx context.Context,expected string)error{
   return apply(ctx,copiedPolicyRoutes(routes),copiedAuthorizations(auth),expected)
  })
+}
+
+// RuntimePolicyCoordinator serializes enrollment ACL updates and route
+// reconciliation within one owner process. Both operations use the same
+// server.json policy source and existing generation ACK mechanisms.
+// A separate process must not write the same policy independently.
+type RuntimePolicyCoordinator struct {
+ mu sync.Mutex
+ ConfigPath string
+ Store *ConfirmedRouteStore
+ Activator *HotACLActivator
+ Panel RouteEvidenceSource
+ Applied AppliedXrayEvidence
+ Apply RoutePolicyApply
+}
+
+// Activate serializes the existing certificate ACL activation with route sync.
+func (c *RuntimePolicyCoordinator) Activate(ctx context.Context, fingerprint string) error {
+ if c==nil||c.Activator==nil||c.ConfigPath==""||c.Activator.Path!=c.ConfigPath {
+  return errors.New("runtime policy coordinator ACL not configured")
+ }
+ c.mu.Lock()
+ defer c.mu.Unlock()
+ return c.Activator.Activate(ctx,fingerprint)
+}
+
+// Sync reads the current ACL only after taking the same lock used by Activate.
+// The route callback must atomically persist the complete policy generation
+// before returning its core ACK; no independent writer is allowed.
+func (c *RuntimePolicyCoordinator) Sync(ctx context.Context) error {
+ if c==nil||c.ConfigPath==""||c.Store==nil {
+  return errors.New("runtime policy coordinator not configured")
+ }
+ c.mu.Lock()
+ defer c.mu.Unlock()
+ data,err:=os.ReadFile(c.ConfigPath)
+ if err!=nil{return errors.New("current runtime policy unavailable")}
+ raw,err:=decodeServerConfig(data)
+ if err!=nil{return err}
+ var authorized map[string][]string
+ if err=json.Unmarshal(raw["authorized"],&authorized);err!=nil||len(authorized)==0 {
+  return errors.New("current runtime policy ACL invalid")
+ }
+ return SyncVerifiedRoutes(ctx,c.Store,c.Panel,c.Applied,authorized,c.Apply)
 }
