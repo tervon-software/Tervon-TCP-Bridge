@@ -1103,3 +1103,9 @@ Running main container remained `RUNNING=true` with image ID `sha256:ce484cdc64c
 - В соответствии с требованием одновременной работы VLESS TCP, VLESS XHTTP и Trojan TCP фильтр серверных inbound теперь исключает UDP/QUIC/неподдерживаемые транспорты, не исключая подтверждённые TCP-совместимые сети.
 - Source `dda4ffcba5f6ab81bbb4bf2a5ad1391af0e6f650`, test `20d44a4f69d526dc3588bb7abc26808ed875df80`; CI pending. Это не подключение к live API/Decapsulator; никаких изменений служб.
 - Портовая динамическая маршрутизация и одновременная нагрузка остаются IN_PROGRESS до проверки реального координатора и E2E.
+
+### 2026-11-23 — M6 existing 3x-ui API inbound adapter to coordinator
+
+- Added `Client.SelectedBridgeInbounds(ctx)` as a read-only adapter using existing `ListInbounds`, `PanelInbound` and `FilterBridgePanelInbounds`; no hardcoded port mappings, no new API client.
+- Added HTTPS mock-panel test with simultaneous TCP VPN ports 30000/55535/55636 and excluded SOCKS/QUIC; source commits `0457c5251c3152383aa52beebccb5d62bd913c64`, `d8c140c4973dc522226c1f1cb3dd99d7070a52d1`.
+- Earlier TCP-only filter Go CI run `45187788091`: success; runtime ACL check was still in progress at time of inspection. New adapter CI pending. No live route publication, no Docker changes, no Android changes. M6 IN_PROGRESS.
