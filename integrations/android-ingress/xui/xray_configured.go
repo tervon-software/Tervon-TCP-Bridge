@@ -45,7 +45,7 @@ func ParseXrayConfiguredInbounds(data []byte, resolve XrayBackendResolver) ([]Ef
   case "tcp","raw","ws","grpc","httpupgrade","http","h2","xhttp","splithttp":
   default: continue
   }
-  if seen[port]{return nil,errors.New("duplicate TCP Xray inbound port")}
+  // Only VPN TCP inbounds are candidates for Bridge routing. Service\n  // listeners must never require a backend resolver or block VPN ports.\n  if !bridgeEligibleProtocol(in.Protocol) {continue}\n  if seen[port]{return nil,errors.New("duplicate TCP Xray inbound port")}
   seen[port]=true
   service,address,err:=resolve(port)
   if err!=nil{return nil,errors.New("trusted Xray backend resolution failed")}
