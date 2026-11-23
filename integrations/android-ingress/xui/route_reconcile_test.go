@@ -106,3 +106,17 @@ func TestFilterBridgePanelInbounds(t *testing.T) {
  // Filter does not alter provider evidence or select disabled services.
  if len(in)!=8 || in[0].Protocol!="socks" {t.Fatal("input mutated")}
 }
+
+func TestFilterBridgePanelInboundsExcludesNonTCPVPN(t *testing.T) {
+ input:=[]PanelInbound{
+  {Port:30000,Protocol:"vless",Network:"tcp",Enabled:true},
+  {Port:55535,Protocol:"vless",Network:"splithttp",Enabled:true},
+  {Port:55636,Protocol:"trojan",Network:"raw",Enabled:true},
+  {Port:443,Protocol:"vless",Network:"quic",Enabled:true},
+  {Port:500,Protocol:"shadowsocks",Network:"udp",Enabled:true},
+ }
+ got:=FilterBridgePanelInbounds(input)
+ if len(got)!=3||got[0].Port!=30000||got[1].Port!=55535||got[2].Port!=55636{
+  t.Fatalf("TCP Bridge selected non-TCP or lost TCP inbound: %+v",got)
+ }
+}
