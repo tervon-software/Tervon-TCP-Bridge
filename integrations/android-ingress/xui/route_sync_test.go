@@ -248,3 +248,33 @@ func TestRuntimePolicyCoordinatorEnrollmentUsesCurrentRoutes(t *testing.T) {
   t.Fatalf("enrollment used stale service list: %v",acl[newcomer])
  }
 }
+
+func TestCoordinatorEnrollmentInvalidatesPreviousDiscoveryGeneration(t *testing.T) {
+ path:=filepath.Join(t.TempDir(),"server.json")
+ oldFP:=strings.Repeat("a",64)
+ newFP:=strings.Repeat("b",64)
+ original:=fmt.Sprintf(`{"mode":"server","routes":{"30000":[{"Name":"30000","Address":"127.0.0.1:30000"}]},"authorized":{"%s":["30000"]}}`,oldFP)
+ if err:=os.WriteFile(path,[]byte(original),0600);err!=nil{t.Fatal(err)}
+ store:=new(ConfirmedRouteStore)
+ if err:=store.PublishAfterCoreACK(context.Background(),map[string]string{"30000":"30000"},strings.Repeat("a",64),func(context.Context,string)error{return nil});err!=nil{t.Fatal(err)}
+ if _,_,ok:=store.Snapshot();!ok{t.Fatal("initial generation missing")}
+ activator:=&HotACLActivator{Path:path,Digest:FullPolicyConfigDigest,
+  Confirm:func(_ context.Context,digest string)error{
+   data,err:=os.ReadFile(path)
+   if err!=nil{return err}
+   actual,err:=FullPolicyConfigDigest(data)
+   if err!=nil||actual!=digest{return errors.New("ACK mismatch")}
+   return nil
+  },
+ }
+ coordinator:=&RuntimePolicyCoordinator{ConfigPath:path,Activator:activator,Store:store}
+ if err:=coordinator.Activate(context.Background(),newFP);err!=nil{t.Fatal(err)}
+ if _,_,ok:=store.Snapshot();ok{t.Fatal("stale discovery generation remained after ACL enrollment")}
+ data,err:=os.ReadFile(path)
+ if err!=nil{t.Fatal(err)}
+ raw,err:=decodeServerConfig(data)
+ if err!=nil{t.Fatal(err)}
+ var acl map[string][]string
+ if err:=json.Unmarshal(raw["authorized"],&acl);err!=nil{t.Fatal(err)}
+ if len(acl[newFP])!=1||acl[newFP][0]!="30000"{t.Fatal("new fingerprint not authorized")}
+}
