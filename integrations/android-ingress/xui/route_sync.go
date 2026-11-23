@@ -114,6 +114,25 @@ func (c *RuntimePolicyCoordinator) Activate(ctx context.Context, fingerprint str
  }
  c.mu.Lock()
  defer c.mu.Unlock()
+ // Enrollment and route sync share this lock. Refresh the service list from
+ // the current policy instead of the registrar's startup snapshot.
+ data,err:=os.ReadFile(c.ConfigPath)
+ if err!=nil{return errors.New("current runtime policy unavailable")}
+ raw,err:=decodeServerConfig(data)
+ if err!=nil{return err}
+ var routes map[string][]PolicyBackend
+ if err:=json.Unmarshal(raw["routes"],&routes);err!=nil||len(routes)==0{
+  return errors.New("current runtime policy routes invalid")
+ }
+ names:=make([]string,0,len(routes))
+ for name,backends:=range routes{
+  if !routeServicePattern.MatchString(name)||len(backends)==0{
+   return errors.New("current runtime policy route invalid")
+  }
+  names=append(names,name)
+ }
+ sort.Strings(names)
+ c.Activator.Services=names
  return c.Activator.Activate(ctx,fingerprint)
 }
 
