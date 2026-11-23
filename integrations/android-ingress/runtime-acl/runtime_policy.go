@@ -101,10 +101,42 @@ func NewRuntimePolicy(routes map[string][]Backend, authorized map[string][]strin
 func (policy *RuntimePolicy) Lookup(id [sha256.Size]byte, service string) ([]Backend, bool) {
     if policy == nil { return nil, false }
     snapshot := policy.current.Load()
-    if snapshot == nil || !snapshot.authorized[id][service] { return nil, false }
-    backends := snapshot.routes[service]
-    if len(backends) == 0 { return nil, false }
-    return append([]Backend(nil), backends...), true
+    if snapshot == nil { return nil, false }
+    // Preserve the existing named-service contract for Linux clients.
+    if snapshot.authorized[id][service] {
+        backends := snapshot.routes[service]
+        if len(backends) == 0 { return nil, false }
+        return append([]Backend(nil), backends...), true
+    }
+    // Android selects the active Xray TCP profile's remote inbound port.
+    // Resolve that port ONLY against the current immutable generation of
+    // already-authorized Bridge routes. Never dial a client-supplied address.
+    port, err := strconv.Atoi(service)
+    if err != nil || port < 1 || port > 65535 || strconv.Itoa(port) != service {
+        return nil, false
+    }
+    var selected []Backend
+    for name, backends := range snapshot.routes {
+        if !snapshot.authorized[id][name] { continue }
+        // A service with mixed backend ports cannot be selected by a single
+        // inbound-port alias; fail closed rather than route unpredictably.
+        if len(backends) == 0 { continue }
+        matches := true
+        for _, backend := range backends {
+            _, rawPort, splitErr := net.SplitHostPort(backend.Address)
+            n, parseErr := strconv.Atoi(rawPort)
+            if splitErr != nil || parseErr != nil || n != port {
+                matches = false
+                break
+            }
+        }
+        if !matches { continue }
+        // Two different authorized services for the same port are ambiguous.
+        if selected != nil { return nil, false }
+        selected = backends
+    }
+    if selected == nil { return nil, false }
+    return append([]Backend(nil), selected...), true
 }
 
 // Replace builds and validates a complete candidate before atomic publish.

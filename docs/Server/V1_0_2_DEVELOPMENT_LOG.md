@@ -1028,3 +1028,11 @@ Running main container remained `RUNNING=true` with image ID `sha256:ce484cdc64c
 ### Source CI results for certificate-only registrar change
 
 **Exact tested code commit:** `85b605da6c667a6fd58a265f14e53c09be5c4793`. GitHub Actions `M6 3X-UI adapter tests`, run `45129325028`: **completed/success**. `M6 runtime ACL source check (released v1.0.1)`, run `45129325045`: **completed/success**. These are GitHub source CI confirmations, not Homeserver installation, Android route-selection PASS or production E2E. Working server retains the prior registrar binary. No Docker/3x-ui/Xray/Android changes made. Next step is to verify the current Android selected-profile-to-service call site and connect the existing approved dynamic selection before a coordinated deployment; no new API, no `tcp_routes`, no fixed port selection.
+
+// M6 Android dynamic inbound port selector — source implementation, 2026-11-23
+// Approval: integrate Android active TCP profile with the existing v1.0.2 RuntimePolicy; no static port registry and no registrar route selection.
+// Client-side (private Android source): remove deprecated service/tcp_routes from Discovery parsing; derive the existing Tervon-Service from the selected outbound endpoint's TCP port.
+// Server-side (runtime-acl/runtime_policy.go): resolve canonical port selectors ONLY against the atomic, fingerprint-authorized active route generation, reject ambiguous, stale and mixed-backend ports; retain legacy named services.
+// Target profiles supplied by operator: VLESS XHTTP 55535 (11), VLESS TCP 30000 (5), Trojan TCP 55636 (100). Ports are test examples, not hardcoded implementation constants.
+// This is a source-level change only. Existing dynamic route synchronization must publish all active verified inbounds and authorized ACL into RuntimePolicy; source tests do not establish that the production coordinator is currently wired. Do not deploy Android source without matching server selector support.
+// Tests: GitHub CI source result recorded in follow-up commit. Homeserver/APK/device E2E: NOT_RUN. No working services were changed.

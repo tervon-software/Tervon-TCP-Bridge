@@ -138,3 +138,71 @@ func TestM6FullPolicyRejectsInvalidRoutes(t *testing.T) {
         }
     }
 }
+
+// TestM6AndroidPortSelectorUsesOnlyCurrentAuthorizedPolicy verifies that
+// the Android inbound port is a selector, never a dial target.
+func TestM6AndroidPortSelectorUsesOnlyCurrentAuthorizedPolicy(t *testing.T) {
+    _, _, id := policyFixture()
+    other := sha256.Sum256([]byte("not-enrolled"))
+    routes := map[string][]Backend{
+        "vpn-tcp": {{Name:"vless-tcp", Address:"127.0.0.1:30000"}},
+        "vpn-xhttp": {{Name:"vless-xhttp", Address:"127.0.0.1:55535"}},
+        "vpn-trojan": {{Name:"trojan", Address:"127.0.0.1:55636"}},
+    }
+    acl := map[string][]string{hex.EncodeToString(id[:]): {"vpn-tcp", "vpn-xhttp", "vpn-trojan"}}
+    policy, err := NewRuntimePolicy(routes, acl)
+    if err != nil { t.Fatal(err) }
+    for _, port := range []string{"30000", "55535", "55636"} {
+        got, ok := policy.Lookup(id, port)
+        if !ok || len(got) != 1 || got[0].Address != "127.0.0.1:"+port {
+            t.Fatalf("wrong profile selection %s: %v %v", port, got, ok)
+        }
+    }
+    for _, invalid := range []string{"0", "65536", "-1", "030000", "127.0.0.1:30000", "443", ""} {
+        if got, ok := policy.Lookup(id, invalid); ok || len(got) > 0 {
+            t.Fatalf("accepted unauthorized port %q", invalid)
+        }
+    }
+    if got, ok := policy.Lookup(other, "55636"); ok || len(got) > 0 {
+        t.Fatal("unenrolled certificate accessed an inbound")
+    }
+    // Existing Go/Linux clients may still request their named service.
+    if got, ok := policy.Lookup(id, "vpn-xhttp"); !ok || len(got) != 1 {
+        t.Fatal("named-service compatibility was lost")
+    }
+    // Remove and move a backend: the old port must immediately stop working.
+    routes["vpn-xhttp"] = []Backend{{Name:"moved", Address:"127.0.0.1:55888"}}
+    if _, err := policy.Replace(routes, acl); err != nil { t.Fatal(err) }
+    if got, ok := policy.Lookup(id, "55535"); ok || len(got)>0 {
+        t.Fatal("stale port survived policy replacement")
+    }
+    if got, ok := policy.Lookup(id, "55888"); !ok || len(got)!=1 || got[0].Address!="127.0.0.1:55888" {
+        t.Fatal("new dynamic inbound port was not selected")
+    }
+    // The previous immutable generation cannot be changed by caller mutation.
+    if got, ok := policy.Lookup(id,"30000"); !ok || got[0].Address!="127.0.0.1:30000" {
+        t.Fatal("unrelated route lost on swap")
+    }
+}
+
+func TestM6AndroidPortSelectorFailsClosedOnAmbiguousOrMixedRoutes(t *testing.T) {
+    _, _, id := policyFixture()
+    acl := map[string][]string{hex.EncodeToString(id[:]):{"a","b"}}
+    routes := map[string][]Backend{
+        "a": {{Address:"127.0.0.1:30000"}},
+        "b": {{Address:"127.0.0.1:30000"}},
+    }
+    policy, err := NewRuntimePolicy(routes, acl)
+    if err != nil { t.Fatal(err) }
+    if got, ok := policy.Lookup(id,"30000"); ok || len(got)>0 {
+        t.Fatal("ambiguous backend port selected")
+    }
+    routes["b"] = []Backend{{Address:"127.0.0.1:55535"},{Address:"127.0.0.1:30000"}}
+    if _, err := policy.Replace(routes, acl); err != nil { t.Fatal(err) }
+    if got, ok := policy.Lookup(id,"55535"); ok || len(got)>0 {
+        t.Fatal("mixed-port backend selected")
+    }
+    if got, ok := policy.Lookup(id,"30000"); !ok || len(got)!=1 {
+        t.Fatal("unique authorized port was not available")
+    }
+}
