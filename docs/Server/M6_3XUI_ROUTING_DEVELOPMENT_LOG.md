@@ -81,3 +81,10 @@
 - Добавлен `TestApplyCompletePolicyAtomicACKAndRollback` в `route_sync_test.go`: успешный ACK, сохранение других полей, отказ нового ACK и восстановление, отказ при неправильном digest.
 - **Коммиты:** `77d2be15c1037e6cf7b09e226a97cb141a392e18` (код), `824c74c5835a3624ea039e35db8bc8a1229c0a48` (тест).
 - **Граница:** новый writer — библиотечная функция в существующем процессе, не новый сервис. Он ещё не подключён к `m6-auto-registrar`; live Xray evidence также не подключён. **CI на commit теста ожидается; E2E и release не PASS.** Работающие службы: NONE.
+
+## 2026-11-24 — исправление устаревшего списка сервисов при enrollment
+
+- `RuntimePolicyCoordinator.Activate` теперь под общей блокировкой читает актуальные `routes` из текущего `server.json`, валидирует имена и непустые backends, сортирует и передаёт список существующему `HotACLActivator`. Стартовый `Services` больше не используется **при вызове через координатор**.
+- Тест `TestRuntimePolicyCoordinatorEnrollmentUsesCurrentRoutes` проверяет смену маршрута `30000` → `55535` между стартом и регистрацией и точный digest ACK.
+- Коммиты `67fda4bd47c65a0cb66bc0c2f134228706cfe0f1`, `a4f665c186bc1613c1218264e27b79e223678c0b`.
+- **Ограничение:** сам Registrar пока вызывает `HotACLActivator` напрямую, не координатор. Полная интеграция не PASS; текущие CI ещё выполняются. Runtime и службы не затронуты.
