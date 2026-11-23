@@ -149,3 +149,56 @@ func atomicACLConfigWrite(path string, content []byte, prior os.FileInfo) error 
 	defer fd.Close()
 	return fd.Sync()
 }
+
+// ApplyCompletePolicy uses the same atomic policy writer and exact ACK contract
+// as enrollment. The caller (RuntimePolicyCoordinator) serializes this with
+// certificate activation. It never changes unrelated server configuration.
+func ApplyCompletePolicy(ctx context.Context, path string,
+ routes map[string][]PolicyBackend, authorized map[string][]string,
+ expectedDigest string, confirm func(context.Context,string)error) error {
+ if ctx==nil||path==""||confirm==nil {
+  return errors.New("complete policy writer not configured")
+ }
+ digest,err:=PolicyGenerationDigest(routes,authorized)
+ if err!=nil||digest!=expectedDigest {
+  return errors.New("complete policy digest mismatch")
+ }
+ if err:=ctx.Err();err!=nil{return err}
+ fi,err:=os.Lstat(path)
+ if err!=nil||!fi.Mode().IsRegular(){return errors.New("Bridge configuration is not a regular file")}
+ before,err:=os.ReadFile(path)
+ if err!=nil||len(before)>4<<20{return errors.New("Bridge configuration unavailable")}
+ raw,err:=decodeServerConfig(before)
+ if err!=nil{return err}
+ var mode string
+ if err:=json.Unmarshal(raw["mode"],&mode);err!=nil||mode!="server" {
+  return errors.New("complete policy requires server mode")
+ }
+ raw["routes"],err=json.Marshal(routes)
+ if err!=nil{return err}
+ raw["authorized"],err=json.Marshal(authorized)
+ if err!=nil{return err}
+ after,err:=json.MarshalIndent(raw,"","  ")
+ if err!=nil{return err}
+ after=append(after,'\n')
+ if err:=atomicACLConfigWrite(path,after,fi);err!=nil {
+  if restoreErr:=atomicACLConfigWrite(path,before,fi);restoreErr!=nil {
+   return fmt.Errorf("policy publication and restoration both failed: %w",restoreErr)
+  }
+  return fmt.Errorf("policy publication failed: %w",err)
+ }
+ if err:=confirm(ctx,expectedDigest);err==nil {
+  return nil
+ }
+ if err:=atomicACLConfigWrite(path,before,fi);err!=nil {
+  return fmt.Errorf("policy not confirmed; persistent rollback failed: %w",err)
+ }
+ priorDigest,err:=FullPolicyConfigDigest(before)
+ if err!=nil{return errors.New("policy not confirmed; previous generation invalid")}
+ rollbackCtx,cancel:=context.WithTimeout(context.Background(),10*time.Second)
+ defer cancel()
+ if err:=confirm(rollbackCtx,priorDigest);err!=nil {
+  return errors.New("policy not confirmed; runtime rollback unverified")
+ }
+ return errors.New("new policy not confirmed; previous generation restored")
+}
