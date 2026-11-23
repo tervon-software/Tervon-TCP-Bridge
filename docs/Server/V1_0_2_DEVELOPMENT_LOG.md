@@ -1121,3 +1121,10 @@ Running main container remained `RUNNING=true` with image ID `sha256:ce484cdc64c
 - GitHub Actions on `89d1ae5782a0f4f8eee666b3190629496aa9f8f8` FAIL: `45189009053` (Go race tests) and `45189008872` (registrar-source job); root failure in `TestParseXrayConfiguredInboundsNegative/duplicate` and `TestParseXrayConfiguredInboundsServiceListenersDoNotBlockVPN`.
 - Root cause: malformed literal escaped newline in source comment unintentionally commented out eligibility and duplicate checks. Corrected real line breaks and preserved duplicate TCP-port rejection in commit `7387cc1b0e96b859d5554e0a5a176fcfb50c5a62`.
 - Corrected commit CI PENDING; do not claim PASS until Go tests/race/vet/build and ACL checks finish. No live changes; M6 IN_PROGRESS.
+
+### 2026-11-24 — M6 approved automatic ACL scope for verified TCP ports
+
+- APPROVED by owner: on confirmed VPN TCP inbound additions/removals, each already enrolled Bridge certificate fingerprint receives the exact current verified route-service set; never create fingerprints from panel data, reject unknown certificates, and publish ACL+routes in one generation.
+- Implemented in existing `SyncVerifiedRoutes` (no new policy mechanism): sorted verified services replace each existing fingerprint's allowed-service list; disabled/deleted services are pruned. Existing ACL map remains unmodified. Source `5a7a3bdb37b74e148835abc3999d160f676deb40`.
+- Added two-generation unit test (three TCP ports then one, two existing certificates, digest, no input mutation) `1b27127d2d50bcf18d60eac0ff9a1a74a49aa9bc`.
+- Earlier regression commit `7387cc1b0e96b859d5554e0a5a176fcfb50c5a62` CI PASS: Go adapter run `45281699543`, runtime ACL run `45281699583`. New ACL package CI pending. Runtime Xray validation and candidate Decapsulator deployment still NOT VERIFIED; no running service or Android changes. M6 IN_PROGRESS.
