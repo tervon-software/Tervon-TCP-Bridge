@@ -1115,3 +1115,9 @@ Running main container remained `RUNNING=true` with image ID `sha256:ce484cdc64c
 - Confirmed prior 3x-ui API adapter CI on `d8c140c4973dc522226c1f1cb3dd99d7070a52d1`: Go adapter tests and runtime ACL source check both success (GitHub Actions runs `45187951474`, `45187951809`).
 - In `ParseXrayConfiguredInbounds`, skip non-VPN service listeners before invoking backend resolver. This prevents SOCKS/HTTP/dokodemo-door from blocking verification of valid VLESS/Trojan TCP inbounds. Source `818cfe1906df343789a5fe785ae10e52c1bdc301`; regression test `89d1ae5782a0f4f8eee666b3190629496aa9f8f8`.
 - New code CI pending; Xray parser remains CONFIGURED_ONLY and is not a live runtime proof. No production service changes, no Android changes. M6 IN_PROGRESS; live route generation ACK and concurrent E2E remain unverified.
+
+### 2026-11-24 — M6 Xray parser CI regression and targeted correction
+
+- GitHub Actions on `89d1ae5782a0f4f8eee666b3190629496aa9f8f8` FAIL: `45189009053` (Go race tests) and `45189008872` (registrar-source job); root failure in `TestParseXrayConfiguredInboundsNegative/duplicate` and `TestParseXrayConfiguredInboundsServiceListenersDoNotBlockVPN`.
+- Root cause: malformed literal escaped newline in source comment unintentionally commented out eligibility and duplicate checks. Corrected real line breaks and preserved duplicate TCP-port rejection in commit `7387cc1b0e96b859d5554e0a5a176fcfb50c5a62`.
+- Corrected commit CI PENDING; do not claim PASS until Go tests/race/vet/build and ACL checks finish. No live changes; M6 IN_PROGRESS.
