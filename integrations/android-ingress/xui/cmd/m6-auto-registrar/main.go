@@ -130,11 +130,18 @@ func configuredServiceNames(root string) ([]string, error) {
 }
 
 func main() {
-    var root, listen, containerID string
+	var root, listen, containerID, expectedImage, expectedLabelKey, expectedLabelValue string
     flag.StringVar(&root, "root", "/etc/tervon/bridge-android", "existing Android Bridge root")
     flag.StringVar(&listen, "listen", "", "loopback address for existing HTTPS proxy (required)")
     flag.StringVar(&containerID, "container-id", "", "running Android ingress Docker container ID")
+	flag.StringVar(&expectedImage, "expected-image", "", "verified running v1.0.2 image (required)")
+	flag.StringVar(&expectedLabelKey, "expected-label-key", "", "verified Docker label key (required)")
+	flag.StringVar(&expectedLabelValue, "expected-label-value", "", "verified Docker label value (required)")
     flag.Parse()
+	if expectedImage != "tervon-bridge-android-ingress:v1.0.2" ||
+		expectedLabelKey == "" || expectedLabelValue == "" {
+		log.Fatal("v1.0.2 registrar requires explicit verified container identity")
+	}
     if filepath.Clean(root) != root || !filepath.IsAbs(root) || root == "/" {
         log.Fatal("invalid existing Android Bridge root")
     }
@@ -159,9 +166,13 @@ func main() {
     if err != nil { log.Fatal(err) }
     activator := &xui.HotACLActivator{
         Path:filepath.Join(root,"config/server.json"), Service:service, Services:services,
-        Confirm:xui.DockerACLConfirmer{
+		Digest:xui.FullPolicyConfigDigest,
+		Confirm:xui.DockerPolicyConfirmer{
             ContainerID:containerID,
             HostConfigDirectory:filepath.Join(root,"config"),
+			ExpectedImage:expectedImage,
+			ExpectedLabelKey:expectedLabelKey,
+			ExpectedLabelValue:expectedLabelValue,
         }.Confirm,
     }
     enrollment := &xui.BridgeEnrollmentHTTP{

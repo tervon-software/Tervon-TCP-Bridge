@@ -15,8 +15,8 @@ import (
 )
 
 // HotACLActivator updates only the persistent Bridge authorization field.
-// Confirm must trigger SIGHUP on the VERIFIED Android-facing container and
-// wait for its exact M6_ACL_RELOAD=PASS digest before reporting success.
+// Confirm requires the VERIFIED Android-facing container's exact generation
+// acknowledgment. Digest defaults to the original ACL-only calculation.
 // Running streams are not touched; no restart is performed.
 //
 // A single instance serializes enrollments to avoid losing concurrent devices.
@@ -27,6 +27,7 @@ type HotACLActivator struct {
 	Service string
     Services []string // optional; default remains the existing single Service
 	Confirm func(context.Context, string) error
+	Digest func([]byte) (string, error) // optional: full Routes+ACL digest for v1.0.2
 }
 
 func (a *HotACLActivator) Activate(ctx context.Context, fingerprint string) error {
@@ -52,7 +53,11 @@ func (a *HotACLActivator) Activate(ctx context.Context, fingerprint string) erro
 	if err != nil {
 		return err
 	}
-	digest, err := aclDigest(after)
+	digestFn := a.Digest
+	if digestFn == nil {
+		digestFn = aclDigest
+	}
+	digest, err := digestFn(after)
 	if err != nil {
 		return err
 	}
@@ -76,7 +81,7 @@ func (a *HotACLActivator) Activate(ctx context.Context, fingerprint string) erro
 	if rollbackErr != nil {
 		return fmt.Errorf("ACL not confirmed; persistent rollback failed: %w", rollbackErr)
 	}
-	priorDigest, hashErr := aclDigest(before)
+	priorDigest, hashErr := digestFn(before)
 	if hashErr != nil {
 		return errors.New("ACL not confirmed; prior ACL is invalid")
 	}
