@@ -62,3 +62,16 @@ func TestListInboundsHTTPFailureDoesNotLeakSecrets(t *testing.T) {
 		t.Fatalf("unsafe error: %v", err)
 	}
 }
+
+func TestSelectedBridgeInboundsUsesLivePanelProjection(t *testing.T) {
+ s:=httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
+  fmt.Fprint(w,`{"success":true,"obj":[{"id":1,"port":10811,"protocol":"socks","enable":true,"streamSettings":{"network":"tcp"}},{"id":2,"port":30000,"protocol":"vless","enable":true,"streamSettings":{"network":"tcp"}},{"id":3,"port":55535,"protocol":"vless","enable":true,"streamSettings":{"network":"splithttp"}},{"id":4,"port":55636,"protocol":"trojan","enable":true,"streamSettings":{"network":"tcp"}},{"id":5,"port":444,"protocol":"vless","enable":true,"streamSettings":{"network":"quic"}}]}`)
+ }))
+ defer s.Close()
+ c:=adapter(t,s)
+ got,err:=c.SelectedBridgeInbounds(context.Background())
+ if err!=nil{t.Fatal(err)}
+ if len(got)!=3||got[0].Port!=30000||got[1].Port!=55535||got[2].Port!=55636 {
+  t.Fatalf("wrong concurrent Bridge port selection: %+v",got)
+ }
+}
