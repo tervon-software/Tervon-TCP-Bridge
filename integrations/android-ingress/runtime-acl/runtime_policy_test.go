@@ -222,3 +222,36 @@ func TestM6AndroidNumericNameCannotBypassBackendPort(t *testing.T) {
         t.Fatal("actual authorized backend port was not selectable")
     }
 }
+
+
+func TestM6AndroidPortSelectorHundredSixteenSeparateEnrolledIdentities(t *testing.T) {
+    routes := map[string][]Backend{
+        "xhttp": {{Address:"127.0.0.1:55535"}},
+        "vless-tcp": {{Address:"127.0.0.1:30000"}},
+        "trojan-tcp": {{Address:"127.0.0.1:55636"}},
+    }
+    acl := make(map[string][]string,116)
+    var identities [116][32]byte
+    for i:=range identities {
+        identities[i]=sha256.Sum256([]byte(fmt.Sprintf("enrolled-device-%d",i)))
+        acl[hex.EncodeToString(identities[i][:])]=[]string{"xhttp","vless-tcp","trojan-tcp"}
+    }
+    p,err:=NewRuntimePolicy(routes,acl)
+    if err!=nil{t.Fatal(err)}
+    var wg sync.WaitGroup
+    for i:=range identities {
+        id:=identities[i]
+        wg.Add(1)
+        go func(){
+            defer wg.Done()
+            for _,port:=range []string{"55535","30000","55636"} {
+                got,ok:=p.Lookup(id,port)
+                if !ok||len(got)!=1||got[0].Address!="127.0.0.1:"+port {
+                    t.Errorf("enrolled identity failed route %s",port)
+                    return
+                }
+            }
+        }()
+    }
+    wg.Wait()
+}
