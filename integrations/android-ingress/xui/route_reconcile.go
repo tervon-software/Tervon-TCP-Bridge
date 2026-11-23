@@ -49,6 +49,28 @@ func canonicalInboundNetwork(network string) string {
  }
 }
 
+// bridgeEligibleProtocol filters service inbounds for both 3x-ui and Remnawave.
+// Protocol is the Xray inbound protocol, not its HTTP-based transport.
+func bridgeEligibleProtocol(protocol string) bool {
+ switch strings.ToLower(strings.TrimSpace(protocol)) {
+ case "vless", "trojan", "shadowsocks", "vmess":
+  return true
+ default:
+  return false
+ }
+}
+
+// FilterBridgePanelInbounds excludes service-unrelated panel inbounds before
+// reconciliation. It does not authorize a route: applied Xray evidence,
+// backend validation and the core policy generation ACK are still mandatory.
+func FilterBridgePanelInbounds(in []PanelInbound) []PanelInbound {
+ out:=make([]PanelInbound,0,len(in))
+ for _,p:=range in {
+  if bridgeEligibleProtocol(p.Protocol) {out=append(out,p)}
+ }
+ return out
+}
+
 // ReconcileInbounds matches a provider-selected set with the effective Xray
 // listeners. It does NOT publish routes, mutate ACL or assume panel == Xray.
 // Duplicate/ambiguous ports fail closed; mismatches are not advertised.
