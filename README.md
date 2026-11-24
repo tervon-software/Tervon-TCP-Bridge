@@ -49,7 +49,7 @@ go vet ./...
 go test -count=1 -timeout=60s ./...
 ```
 
-Не запускайте тяжёлые сценарии на работающих службах; испытания должны использовать отдельные адреса, сертификаты и процессы. Git remote — только SSH: `git@github.com:belikovviktor804-cyber/Tervon-TCP-Bridge.git`.
+Не запускайте тяжёлые сценарии на работающих службах; испытания должны использовать отдельные адреса, сертификаты и процессы. Git remote — только SSH: `git@github.com:tervon-software/Tervon-TCP-Bridge.git`.
 
 ## Лицензия
 
