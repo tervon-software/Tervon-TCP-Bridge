@@ -6,15 +6,19 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
 )
 
 type panelSettings struct {
-	Type          string `json:"type"`
-	BaseURL       string `json:"base_url"`
-	APICredential string `json:"credential_file"`
+	Type            string `json:"type"`
+	BaseURL         string `json:"base_url"`
+	APICredential   string `json:"credential_file"`
+	ConnectLoopback bool   `json:"connect_loopback,omitempty"`
 }
 
 // ConfiguredPanelInbounds reloads the protected installer settings on each
@@ -57,7 +61,27 @@ func configuredPanelClient(path string) (*Client, error) {
 	if err != nil {
 		return nil, errors.New("protected API credential unavailable")
 	}
-	return newClientFromHeader(config.BaseURL, credential)
+	client, err := newClientFromHeader(config.BaseURL, credential)
+	if err != nil {
+		return nil, err
+	}
+	if config.ConnectLoopback {
+		// Only the socket destination changes. net/http still uses the
+		// request URL's hostname for TLS and the HTTP Host header.
+		dialer := &net.Dialer{Timeout: 10 * time.Second}
+		client.httpClient.Transport = &http.Transport{
+			DisableKeepAlives: true,
+			ForceAttemptHTTP2: true,
+			DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+				_, port, err := net.SplitHostPort(address)
+				if err != nil {
+					return nil, errors.New("invalid panel dial address")
+				}
+				return dialer.DialContext(ctx, network, net.JoinHostPort("127.0.0.1", port))
+			},
+		}
+	}
+	return client, nil
 }
 
 // Inspect the opened file so an atomic replacement cannot invalidate the
