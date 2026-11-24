@@ -148,6 +148,8 @@ flowchart TB
 
 ### Документация для пользователей
 
+- [Технологии Bridge v1.0.2: TLS, HTTP/2, Padding, Jitter и метрики](docs/TECHNOLOGIES-v1.0.2.ru.md)
+
 - [TervonVPN на Android: установка APK, подключение Bridge и мониторинг](docs/ANDROID-v1.0.2.ru.md)
 - [Установка v1.0.2 и первоначальная настройка](docs/INSTALL-v1.0.2.ru.md)
 - [Архивная инструкция для v1.0.1](docs/INSTALL-v1.0.1.ru.md)
