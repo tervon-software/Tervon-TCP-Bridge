@@ -120,3 +120,10 @@
 - Добавлен `TestCoordinatorSyncAppliesFullGenerationWithRealAtomicWriter` в `xui/route_sync_test.go`: три TCP inbound (VLESS TCP 30000, VLESS XHTTP 55535, Trojan TCP 55636), `RuntimePolicyCoordinator.Sync`, `ApplyCompletePolicy`, атомарный файл, exact digest ACK, подтверждённый `ConfirmedRouteStore` и обновлённый ACL существующего fingerprint. Используется тестовый callback ACK, **не** live Docker.
 - Source commit `74a22def3eadf222223558670792c83fe5048b80`; CI ожидается.
 - Ограничение: источник live Xray и 3x-ui URL на Homeserver не подтверждены, поэтому production Sync пока не включён. Это не E2E PASS. Рабочие службы: NONE.
+
+## 2026-11-24 — Live Xray и достижимость backend XHTTP из Decapsulator
+
+- Ветка `work/m6-android-ingress`, HEAD GitHub перед записью `ca55b1e6a80d8166167d77b854a267bb22d9e4f3`. Проверка оператором на Homeserver из checkout `7a48737bda553b3f93e819ecea0da1c1daf78a32`; blob диагностического скрипта `66d9879338091b6669a6dd8ecdd2e436f3956de1` совпадает на обоих коммитах.
+- **LIVE GRPC PROJECTION PASS.** Xray однозначно найден среди прямых потомков активного `x-ui.service` по PPID и имени исполняемого файла. Один read-only `xray api lsi --isOnlyTags=false` к loopback API, с проверкой идентичности процесса до и после. 5 handlers, один служебный пропущен, 4 совпадения со снимком конфигурации: VLESS TCP 30000, VLESS XHTTP (splithttp) 55535, Trojan TCP 55636, SOCKS TCP 10811. Неподдерживаемых и несовпавших нет. Перезапуск Xray и выбор через API панели в этом прогоне не проверялись.
+- **DOCKER_BACKEND_CONNECT_55535=PASS.** Текущий Decapsulator определён через `docker inspect`; прочитан его `/etc/hosts`, затем `nsenter -t <init-pid> -n` выполнил одно TCP-подключение к адресу `host.docker.internal` на порту 55535. Идентичность контейнера повторно сверена после подключения. Предыдущие PASS для 30000 и 55636 сохранены как отдельные результаты, эти порты повторно не проверялись.
+- Проверка 55535 подтверждает достижимость TCP. Публикация маршрута, передача XHTTP через Bridge, автоматический `Sync` и live ACK поколения не проверялись. Изменений на Homeserver не вносилось, M6 остаётся IN_PROGRESS.
