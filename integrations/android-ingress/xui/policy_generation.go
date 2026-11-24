@@ -20,7 +20,7 @@ type PolicyBackend struct {
 // logged by cmd/bridge on successful M6_POLICY_RELOAD, with routes first
 // and authorized second. It does not itself verify Docker applied it.
 func PolicyGenerationDigest(routes map[string][]PolicyBackend, authorized map[string][]string)(string,error){
- if len(routes)==0||len(routes)>4096{return "",errors.New("invalid policy routes")}
+ if routes==nil||len(routes)>4096{return "",errors.New("invalid policy routes")}
  for name,backends:=range routes{
   if !routeServicePattern.MatchString(name)||len(backends)==0||len(backends)>64{return "",errors.New("invalid policy service or backends")}
   for _,backend:=range backends{
@@ -30,12 +30,17 @@ func PolicyGenerationDigest(routes map[string][]PolicyBackend, authorized map[st
   }
  }
  if len(authorized)==0{return "",errors.New("missing policy authorization")}
+ canonicalACL:=make(map[string][]string,len(authorized))
+ for fingerprint,services:=range authorized{
+  if (len(services)==0)!=(len(routes)==0){return "",errors.New("invalid policy service grants")}
+  canonicalACL[fingerprint]=append([]string{},services...)
+ }
  // Do not reorder fields, change json tags on Backend, or normalize ACL
  // arrays: the digest must match the bytes emitted by the bridge core.
  payload,err:=json.Marshal(struct{
   Routes map[string][]PolicyBackend `json:"routes"`
   Authorized map[string][]string `json:"authorized"`
- }{routes,authorized})
+ }{routes,canonicalACL})
  if err!=nil{return "",errors.New("policy serialization failed")}
  sum:=sha256.Sum256(payload)
  return fmt.Sprintf("%x",sum),nil

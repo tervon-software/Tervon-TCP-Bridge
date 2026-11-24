@@ -74,6 +74,16 @@ def patch_bridge(text):
 
 def patch_main(text):
     text = replace_one(
+        text, "len(c.Routes) == 0 || len(c.Authorized) == 0",
+        "c.Routes == nil || len(c.Authorized) == 0",
+        "allow explicitly empty route policy",
+    )
+    text = replace_one(
+        text, "len(services) == 0 {",
+        "(len(services) == 0) != (len(c.Routes) == 0) {",
+        "validate service grants against empty route policy",
+    )
+    text = replace_one(
         text, '\t"net/url"\n', '\t"net/url"\n\t"reflect"\n',
         "reflect import",
     )

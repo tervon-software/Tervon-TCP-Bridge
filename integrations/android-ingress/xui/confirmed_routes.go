@@ -23,7 +23,7 @@ type ConfirmedRouteStore struct {
 var policyDigestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 // Snapshot returns a defensive copy. Absence of a confirmed generation means
-// discovery must fail closed; an empty route map is not a ready snapshot.
+// discovery must fail closed. A confirmed empty map means no ports are allowed.
 func(s *ConfirmedRouteStore) Snapshot()(map[string]string,string,bool){
  if s==nil{return nil,"",false}
  s.mu.RLock()
@@ -42,7 +42,7 @@ func(s *ConfirmedRouteStore) Snapshot()(map[string]string,string,bool){
 // routes already validated against the selected node and effective Xray.
 func(s *ConfirmedRouteStore) PublishAfterCoreACK(ctx context.Context, routes map[string]string, digest string, confirm func(context.Context,string)error)error{
  if s==nil||confirm==nil{return errors.New("confirmed route publisher not configured")}
- if !policyDigestPattern.MatchString(digest)||len(routes)==0||len(routes)>4096{return errors.New("invalid route generation")}
+ if !policyDigestPattern.MatchString(digest)||routes==nil||len(routes)>4096{return errors.New("invalid route generation")}
  copied:=make(map[string]string,len(routes))
  for port,service:=range routes{
   n,err:=strconv.Atoi(port)
@@ -58,6 +58,7 @@ func(s *ConfirmedRouteStore) PublishAfterCoreACK(ctx context.Context, routes map
  // After attempting a core update, failure/timeout has ambiguous outcome:
  // core may have applied a new policy without the ACK reaching us.
  // Fail closed for NEW discovery rather than advertise a possibly stale map.
+ if s.ready && s.digest==digest{return nil}
  if err:=confirm(ctx,digest);err!=nil{
   s.ready=false
   return errors.New("Decapsulator policy generation not confirmed")

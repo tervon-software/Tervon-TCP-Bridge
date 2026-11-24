@@ -111,6 +111,10 @@ func TestM6PolicyActiveHTTP2StreamSurvivesRouteAndACLSwap(t *testing.T) {
     case <-time.After(5*time.Second): t.Fatal("revoked stream did not terminate")
     }
     _ = refused.Close()
+    emptyACL := map[string][]string{hex.EncodeToString(id[:]): {}}
+    if _,err:=policy.Replace(map[string][]Backend{},emptyACL);err!=nil {t.Fatal(err)}
+    roundTrip(active,'A',"after-last-port-disabled")
+    if _,ok:=policy.Lookup(id,"vpn");ok {t.Fatal("new stream could still select a disabled route")}
     if _,err:=policy.Replace(first,allowed);err!=nil {t.Fatal(err)}
     reallowed, reallowedDone := open()
     roundTrip(reallowed,'A',"restored")

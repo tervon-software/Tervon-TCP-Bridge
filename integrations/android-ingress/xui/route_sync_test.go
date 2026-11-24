@@ -58,7 +58,12 @@ func TestSyncVerifiedRoutesFailClosedWhenAPIOrACKFails(t *testing.T){
  xrayFail:=func(context.Context)([]EffectiveInbound,error){return nil,errors.New("runtime query timeout")}
  if err:=SyncVerifiedRoutes(ctx,store,goodPanel,xrayFail,auth,successful);err==nil{t.Fatal("Xray query failure accepted")}
  if routes,_,ok:=store.Snapshot();!ok||routes["55535"]!="vpn"{t.Fatal("previously ACKed discovery lost on transient Xray query error")}
- if err:=SyncVerifiedRoutes(ctx,store,goodPanel,goodXray,auth,func(context.Context,map[string][]PolicyBackend,map[string][]string,string)error{return errors.New("ACK missing")});err==nil{t.Fatal("missing ACK accepted")}
+ changedXray:=func(ctx context.Context)([]EffectiveInbound,error){
+  routes,err:=goodXray(ctx)
+  routes[0].Address="127.0.0.1:55535"
+  return routes,err
+ }
+ if err:=SyncVerifiedRoutes(ctx,store,goodPanel,changedXray,auth,func(context.Context,map[string][]PolicyBackend,map[string][]string,string)error{return errors.New("ACK missing")});err==nil{t.Fatal("missing ACK accepted")}
  if _,_,ok:=store.Snapshot();ok{t.Fatal("unconfirmed policy advertised")}
  if err:=SyncVerifiedRoutes(ctx,store,goodPanel,goodXray,auth,successful);err!=nil{t.Fatal(err)}
  if _,_,ok:=store.Snapshot();!ok{t.Fatal("confirmed policy not restored")}
@@ -325,4 +330,45 @@ func TestCoordinatorSyncAppliesFullGenerationWithRealAtomicWriter(t *testing.T) 
  var acl map[string][]string
  if err:=json.Unmarshal(raw["authorized"],&acl);err!=nil{t.Fatal(err)}
  if len(acl[fp])!=3{t.Fatalf("ACL not updated atomically: %v",acl)}
+}
+
+func TestSyncClosesLastRouteAndRestoresIt(t *testing.T) {
+ store:=new(ConfirmedRouteStore)
+ enabled:=true
+ panelFailed:=false
+ panel:=func(context.Context)([]PanelInbound,error){
+  if panelFailed{return nil,errors.New("panel unavailable")}
+  return []PanelInbound{{Port:55535,Protocol:"vless",Network:"xhttp",Enabled:enabled}},nil
+ }
+ applied:=func(context.Context)([]EffectiveInbound,error){
+  if !enabled{t.Fatal("queried Xray after panel confirmed zero selected ports")}
+  return []EffectiveInbound{{Port:55535,Protocol:"vless",Network:"splithttp",Service:"55535",Address:"127.0.0.1:55535"}},nil
+ }
+ fingerprint:=strings.Repeat("a",64)
+ authorized:=map[string][]string{fingerprint:{"55535"}}
+ applies:=0
+ apply:=func(_ context.Context,routes map[string][]PolicyBackend, acl map[string][]string,digest string)error{
+  applies++
+  if routes==nil || acl[fingerprint]==nil || len(routes)!=len(acl[fingerprint]){t.Fatal("inconsistent routes and grants")}
+  authorized=acl
+  actual,err:=PolicyGenerationDigest(routes,acl)
+  if err!=nil||actual!=digest{t.Fatal("digest mismatch")}
+  return nil
+ }
+ sync:=func(){t.Helper();if err:=SyncVerifiedRoutes(context.Background(),store,panel,applied,authorized,apply);err!=nil{t.Fatal(err)}}
+ sync()
+ enabled=false
+ sync()
+ routes,_,ready:=store.Snapshot()
+ if !ready||len(routes)!=0||len(authorized[fingerprint])!=0{t.Fatal("empty generation not confirmed")}
+ sync()
+ if applies!=2{t.Fatal("unchanged generation was reapplied")}
+ panelFailed=true
+ if SyncVerifiedRoutes(context.Background(),store,panel,applied,authorized,apply)==nil{t.Fatal("panel failure ignored")}
+ if _,_,ready:=store.Snapshot();!ready{t.Fatal("confirmed empty generation lost after API failure")}
+ panelFailed=false
+ enabled=true
+ sync()
+ routes,_,ready=store.Snapshot()
+ if !ready || routes["55535"]!="55535" || len(authorized[fingerprint])!=1{t.Fatal("route and grant not restored")}
 }

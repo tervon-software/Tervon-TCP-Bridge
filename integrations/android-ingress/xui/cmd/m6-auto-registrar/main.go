@@ -62,7 +62,7 @@ func discoverBridgeEndpoint(root, containerID string, serverCAPEM []byte) (strin
     if err != nil { return "", "", err }
     var cfg bridgeRuntimeConfig
     if err = json.Unmarshal(data, &cfg); err != nil { return "", "", err }
-    if cfg.Mode != "server" || len(cfg.Routes) == 0 {
+    if cfg.Mode != "server" || cfg.Routes == nil {
         return "", "", errors.New("existing Bridge VPN route unavailable")
     }
     _, internalPort, err := net.SplitHostPort(cfg.Listen)
@@ -150,7 +150,13 @@ func main() {
     flag.StringVar(&xraySource.OwnerUnit, "xray-owner-unit", "", "systemd unit that starts Xray")
     flag.StringVar(&xraySource.ExecutableName, "xray-executable", "", "Xray process executable basename")
     flag.StringVar(&xraySource.BackendAlias, "xray-backend-alias", "", "Xray backend alias in Decapsulator hosts")
+    syncInterval := flag.Duration("route-sync-interval", 0, "interval between route observations; zero disables synchronization")
     flag.Parse()
+    if *syncInterval < 0 || (*syncInterval > 0 && (panelConfigPath == "" ||
+        xraySource.ProbePath == "" || xraySource.OwnerUnit == "" ||
+        xraySource.ExecutableName == "" || xraySource.BackendAlias == "")) {
+        log.Fatal("invalid route synchronization settings")
+    }
 	if !approvedRegistrarImage(expectedImage) ||
 		expectedLabelKey == "" || expectedLabelValue == "" {
 		log.Fatal("v1.0.2 registrar requires explicit verified container identity")
@@ -193,7 +199,7 @@ func main() {
         applied = xraySource.Evidence
     }
     // Enrollment and route sync share the same verified Decapsulator.
-    // The route observation is bound here; scheduling is a separate step.
+    // Enrollment and synchronization use the same coordinator and writer.
     policyPath := filepath.Join(root,"config/server.json")
     coordinator := &xui.RuntimePolicyCoordinator{
         ConfigPath:policyPath,
@@ -215,16 +221,37 @@ func main() {
             return coordinator.Activate(ctx,fingerprint)
         },
     }
+    if *syncInterval > 0 {
+        enrollment.DiscoveryAvailable = func() bool {
+            routes, _, ready := coordinator.Store.Snapshot()
+            return ready && len(routes) > 0
+        }
+    }
     handler,err := enrollment.Handler()
     if err != nil { log.Fatal(err) }
     mux := http.NewServeMux()
     mux.Handle("/.well-known/tervon-bridge",handler)
     ln,err := net.Listen("tcp",listen)
     if err != nil { log.Fatal(fmt.Errorf("cannot open registrar loopback listener: %w",err)) }
+    if *syncInterval > 0 {
+        go runRouteSync(*syncInterval, coordinator)
+    }
     log.Print("M6_BRIDGE_REGISTRAR=LOOPBACK_LISTENING")
     srv := &http.Server{
         Handler:mux, ReadHeaderTimeout:5*time.Second,
         IdleTimeout:15*time.Second, MaxHeaderBytes:16<<10,
     }
     log.Fatal(srv.Serve(ln))
+}
+
+func runRouteSync(interval time.Duration, coordinator *xui.RuntimePolicyCoordinator) {
+    for {
+        ctx, cancel := context.WithTimeout(context.Background(), 70*time.Second)
+        err := coordinator.Sync(ctx)
+        cancel()
+        if err != nil {
+            log.Printf("M6_ROUTE_SYNC=FAIL: %v", err)
+        }
+        time.Sleep(interval)
+    }
 }

@@ -27,7 +27,7 @@ type policySnapshot struct {
 var policyServiceName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
 func buildPolicy(routes map[string][]Backend, authorized map[string][]string) (*policySnapshot, error) {
-    if len(routes) == 0 || len(routes) > 4096 || len(authorized) == 0 {
+    if routes == nil || len(routes) > 4096 || len(authorized) == 0 {
         return nil, errors.New("invalid policy sizes")
     }
     copiedRoutes := make(map[string][]Backend, len(routes))
@@ -51,7 +51,7 @@ func buildPolicy(routes map[string][]Backend, authorized map[string][]string) (*
     copiedACL := make(map[[sha256.Size]byte]map[string]bool, len(authorized))
     for fingerprint, services := range authorized {
         decoded, err := hex.DecodeString(fingerprint)
-        if err != nil || len(decoded) != sha256.Size || len(services) == 0 {
+        if err != nil || len(decoded) != sha256.Size || (len(services) == 0) != (len(routes) == 0) {
             return nil, errors.New("invalid certificate fingerprint or services")
         }
         var id [sha256.Size]byte
@@ -72,7 +72,7 @@ func buildPolicy(routes map[string][]Backend, authorized map[string][]string) (*
     // A caller changing its input slices after publication cannot change it.
     canonicalACL := make(map[string][]string, len(authorized))
     for fingerprint, services := range authorized {
-        canonicalACL[fingerprint] = append([]string(nil), services...)
+        canonicalACL[fingerprint] = append([]string{}, services...)
     }
     // The coordinator hashes exactly this public JSON shape: routes then
     // authorized; Backend has exported Name and Address in that order.

@@ -199,7 +199,7 @@ func TestM6AndroidPortSelectorFailsClosedOnAmbiguousOrMixedRoutes(t *testing.T) 
     }
     routes["b"] = []Backend{{Address:"127.0.0.1:55535"},{Address:"127.0.0.1:30000"}}
     if _, err := policy.Replace(routes, acl); err != nil { t.Fatal(err) }
-    if got, ok := policy.Lookup(id,"55535"); ok || len(got)>0 {
+    if got, ok := policy.Lookup(id,"vpn"); ok || len(got)>0 {
         t.Fatal("mixed-port backend selected")
     }
     if got, ok := policy.Lookup(id,"30000"); !ok || len(got)!=1 {
@@ -254,4 +254,17 @@ func TestM6AndroidPortSelectorHundredSixteenSeparateEnrolledIdentities(t *testin
         }()
     }
     wg.Wait()
+}
+
+func TestRuntimePolicyAcknowledgesNoRoutes(t *testing.T) {
+ routes,authorized,id:=policyFixture()
+ fingerprint:=hex.EncodeToString(id[:])
+ policy,err:=NewRuntimePolicy(routes,authorized)
+ if err!=nil{t.Fatal(err)}
+ if _,ok:=policy.Lookup(id,"vpn");!ok{t.Fatal("initial route unavailable")}
+ digest,err:=policy.Replace(map[string][]Backend{},map[string][]string{fingerprint:{}})
+ if err!=nil||digest==""{t.Fatalf("empty generation rejected: %v",err)}
+ if _,ok:=policy.Lookup(id,"vpn");ok{t.Fatal("disabled route still accessible")}
+ if _,err:=policy.Replace(routes,authorized);err!=nil{t.Fatal(err)}
+ if _,ok:=policy.Lookup(id,"vpn");!ok{t.Fatal("restored route unavailable")}
 }

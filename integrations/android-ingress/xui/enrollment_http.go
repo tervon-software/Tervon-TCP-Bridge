@@ -28,6 +28,7 @@ type BridgeEnrollmentHTTP struct {
     ClientCAKey crypto.Signer
     Activate func(fingerprint string) error
     Now func() time.Time
+    DiscoveryAvailable func() bool
 }
 
 type bridgeDiscoveryResponse struct {
@@ -69,6 +70,10 @@ func (h *BridgeEnrollmentHTTP) Handler() (http.Handler, error) {
                 return
             }
             w.Header().Set("Content-Type", "application/json")
+            if h.DiscoveryAvailable != nil && !h.DiscoveryAvailable() {
+                _ = json.NewEncoder(w).Encode(bridgeDiscoveryResponse{Available:false})
+                return
+            }
             _ = json.NewEncoder(w).Encode(bridgeDiscoveryResponse{
                 Available:true, RemoteURL:h.RemoteURL,
                 ServerName:h.ServerName,

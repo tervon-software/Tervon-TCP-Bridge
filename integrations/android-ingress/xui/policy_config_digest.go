@@ -18,7 +18,7 @@ func FullPolicyConfigDigest(serverJSON []byte) (string, error) {
 		return "", errors.New("invalid Bridge server mode")
 	}
 	var routes map[string][]PolicyBackend
-	if err := json.Unmarshal(raw["routes"], &routes); err != nil || len(routes) == 0 {
+	if err := json.Unmarshal(raw["routes"], &routes); err != nil || routes == nil {
 		return "", errors.New("invalid Bridge policy routes")
 	}
 	var authorized map[string][]string

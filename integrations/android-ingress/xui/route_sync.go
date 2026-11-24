@@ -26,7 +26,7 @@ type RoutePolicyApply func(context.Context,map[string][]PolicyBackend,map[string
 
 func copiedAuthorizations(in map[string][]string)map[string][]string{
  out:=make(map[string][]string,len(in))
- for k,v:=range in{out[k]=append([]string(nil),v...)}
+ for k,v:=range in{out[k]=append([]string{},v...)}
  return out
 }
 
@@ -54,14 +54,17 @@ func SyncVerifiedRoutes(ctx context.Context,store *ConfirmedRouteStore,
  if err!=nil{return errors.New("panel inbound evidence unavailable")}
  // Ignore service-unrelated panel inbounds; never publish them as Bridge routes.
  p=FilterBridgePanelInbounds(p)
- e,err:=applied(ctx)
- // A temporary runtime-query failure is not proof of a changed Xray listener.
- if err!=nil{return errors.New("applied Xray evidence unavailable")}
- verified,err:=ReconcileInbounds(p,e)
- if err!=nil{return fail(err)}
  active:=0
  for _,in:=range p{if in.Enabled{active++}}
- if active==0||len(verified)!=active{
+ var e []EffectiveInbound
+ if active>0{
+  e,err=applied(ctx)
+  // A temporary runtime-query failure preserves the acknowledged generation.
+  if err!=nil{return errors.New("applied Xray evidence unavailable")}
+ }
+ verified,err:=ReconcileInbounds(p,e)
+ if err!=nil{return fail(err)}
+ if len(verified)!=active{
   return fail(errors.New("selected panel inbounds not fully verified by applied Xray"))
  }
  discovered:=make(map[string]string,len(verified))
@@ -82,9 +85,8 @@ func SyncVerifiedRoutes(ctx context.Context,store *ConfirmedRouteStore,
  for service:=range services{names=append(names,service)}
  sort.Strings(names)
  auth:=make(map[string][]string,len(authorized))
- for fingerprint,allowed:=range authorized{
-  if len(allowed)==0{return fail(errors.New("empty Bridge ACL entry"))}
-  auth[fingerprint]=append([]string(nil),names...)
+ for fingerprint:=range authorized{
+  auth[fingerprint]=append([]string{},names...)
  }
  digest,err:=PolicyGenerationDigest(routes,auth)
  if err!=nil{return fail(err)}

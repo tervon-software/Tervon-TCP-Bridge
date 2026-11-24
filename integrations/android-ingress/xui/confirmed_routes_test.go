@@ -32,7 +32,7 @@ func TestConfirmedRouteStoreRejectsBadGenerationWithoutMutation(t *testing.T){
  store:=new(ConfirmedRouteStore)
  d1:=strings.Repeat("a",64)
  if err:=store.PublishAfterCoreACK(context.Background(),map[string]string{"30000":"vpn"},d1,func(context.Context,string)error{return nil});err!=nil{t.Fatal(err)}
- for _,caseRoutes:=range []map[string]string{{},{"0":"vpn"},{"055535":"vpn"},{"65536":"vpn"},{"55535":"bad space"}}{
+ for _,caseRoutes:=range []map[string]string{nil,{"0":"vpn"},{"055535":"vpn"},{"65536":"vpn"},{"55535":"bad space"}}{
   if err:=store.PublishAfterCoreACK(context.Background(),caseRoutes,strings.Repeat("b",64),func(context.Context,string)error{t.Fatal("called ACK on invalid snapshot");return nil});err==nil{t.Fatal("invalid update accepted")}
  }
  if err:=store.PublishAfterCoreACK(context.Background(),map[string]string{"55535":"vpn-tcp"},"bad-digest",func(context.Context,string)error{return nil});err==nil{t.Fatal("bad digest accepted")}
