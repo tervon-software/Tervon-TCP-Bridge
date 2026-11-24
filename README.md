@@ -2,7 +2,7 @@
 
 **Защищённый TCP-мост между серверами через HTTPS/2**
 
-**Linux v1.0.1:** [Скачать выпуск](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.1) · [Установка на Linux](docs/INSTALL-v1.0.1.ru.md) · [Что нового](docs/RELEASE_NOTES_v1.0.1.ru.md).
+**Linux v1.0.2 (x86-64):** [Скачать актуальный бинарник](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6) · [Установка на Linux](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/2d28fb8afa2621d073a40ad9c6780bbf8777f3bf/docs/Server/INSTALL-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.2).
 
 Tervon TCP Bridge соединяет два удалённых участка TCP-сети через один защищённый канал. Он принимает обычное TCP-подключение на одной машине, переносит его данные по HTTP/2 поверх TLS 1.3 и передаёт их назначенному сервису на другой машине.
 
@@ -140,38 +140,16 @@ flowchart TB
 
 ## Скачать и установить
 
-**Поддерживаемый выпуск: Linux v1.0.1, amd64.** Для работы нужны два Linux-сервера с systemd: один в роли Encapsulator (client), второй в роли Decapsulator (server).
+**Актуальный выпуск: Linux v1.0.2, x86-64.** Для межсерверной схемы нужны два Linux-узла: Encapsulator (client) и Decapsulator (server). Обе роли используют один бинарник.
 
-### Клонировать репозиторий
+Скачайте [актуальную сборку](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) и [файл контрольных сумм](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6). Проверьте SHA256 перед установкой. [Инструкция на русском](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/2d28fb8afa2621d073a40ad9c6780bbf8777f3bf/docs/Server/INSTALL-v1.0.2.ru.md) описывает настройку сертификатов, ACL и запуск через systemd.
 
-Используйте SSH-доступ к GitHub:
-
-```bash
-git clone git@github.com:tervon-software/Tervon-TCP-Bridge.git
-cd Tervon-TCP-Bridge
-git fetch --tags origin
-git checkout --detach v1.0.1
-```
-
-Если нужен только исполняемый файл, клонирование не требуется: готовый бинарник `tervon-bridge-linux-amd64` и `SHA256SUMS` доступны в [релизе v1.0.1](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.1). Проверяйте SHA256 до установки.
-
-### Установка на два новых сервера
-
-Подробное руководство: **[Установка Tervon TCP Bridge v1.0.1](docs/INSTALL-v1.0.1.ru.md)**. Установщик проверяет точный SHA релизного бинарника, создаёт файлы и образцы JSON, но **не запускает сервис автоматически**. Настройка собственной PKI (TLS 1.3/mTLS) и разрешённых маршрутов обязательна; не публикуйте закрытые ключи.
-
-```bash
-# На сервере с локальными TCP-подключениями
-sudo bash install/install-bridge.sh install client
-
-# На принимающем сервере
-sudo bash install/install-bridge.sh install server
-```
-
-После подготовки сертификатов и файлов `client.json` / `server.json` выполните `activate` для соответствующей роли, как описано в инструкции. **Не используйте этот установщик для обновления уже работающего Bridge:** он намеренно отказывается перезаписывать действующую установку.
+Автоматическая синхронизация входящих TCP-портов 3x-ui требует Registrar. Для подготовленного вручную маршрута между двумя Linux-узлами достаточно бинарника Bridge и конфигураций обеих ролей.
 
 ### Документация для пользователей
 
-- [Установка v1.0.1 и первоначальная настройка](docs/INSTALL-v1.0.1.ru.md)
+- [Установка v1.0.2 и первоначальная настройка](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/2d28fb8afa2621d073a40ad9c6780bbf8777f3bf/docs/Server/INSTALL-v1.0.2.ru.md)
+- [Архивная инструкция для v1.0.1](docs/INSTALL-v1.0.1.ru.md)
 - [Параметры конфигурации и интеграция с Xray](docs/CONFIGURATION.ru.md)
 - [Диагностика и типовые ошибки](docs/TROUBLESHOOTING.ru.md)
 - [Заметки к выпуску v1.0.1](docs/RELEASE_NOTES_v1.0.1.ru.md)
