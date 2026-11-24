@@ -13,7 +13,7 @@ Tervon TCP Bridge передаёт двунаправленные TCP-поток
 
 ## 1. Скачать и проверить бинарник
 
-На [странице v1.0.2](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.2) актуальная сборка публикуется отдельным файлом `tervon-bridge-linux-amd64-v1.0.2-m6`. Если его ещё нет в списке, публикация актуальной сборки не завершена. Для неё используется отдельная контрольная сумма:
+Скачайте [актуальный бинарник Linux x86-64](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) и [SHA256SUMS-m6](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6) из релиза v1.0.2. Контрольная сумма бинарника:
 
 ```text
 15af985ec45811d55d0ffe9c1cbc9c5c496a888ccd58e83ec6ca711cb09187a6  tervon-bridge-linux-amd64-v1.0.2-m6
