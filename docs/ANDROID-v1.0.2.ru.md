@@ -6,8 +6,8 @@ TervonVPN использует Bridge для передачи TCP-трафика
 
 ## Установка приложения
 
-1. Получите подписанный APK TervonVPN из официального канала распространения. Linux-релиз Bridge предназначен для серверов и не содержит APK.
-2. Если вместе с APK опубликована SHA256, сравните её с хешем файла. На Linux выполните `sha256sum имя-файла.apk`.
+1. Скачайте [TervonVPN DPI 1.0.32 (сборка 33, ARM64)](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.32/tervonvpndpi-1.0.32%2B33.apk) из [официального Android-выпуска](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/android-v1.0.32).
+2. Скачайте [SHA256SUMS](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.32/SHA256SUMS) в тот же каталог. На Linux проверьте файл командой `sha256sum -c SHA256SUMS`.
 3. Откройте APK на Android. Если система запросит разрешение для источника установки, разрешите установку только для приложения, которым открываете этот файл.
 4. При обновлении устанавливайте новый APK поверх существующего приложения. Если Android отклоняет установку из-за подписи, получите пакет из того же официального канала, с которого установлена текущая версия. Удаление приложения может привести к потере настроек и регистрации устройства.
 
