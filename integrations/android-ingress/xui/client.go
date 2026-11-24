@@ -46,6 +46,10 @@ func NewClientFromHeader(baseURL, headerPath string) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read API credential: %w", err)
 	}
+	return newClientFromHeader(baseURL, b)
+}
+
+func newClientFromHeader(baseURL string, b []byte) (*Client, error) {
 	const prefix = "Authorization: Bearer "
 	header := strings.TrimSpace(string(b))
 	if !strings.HasPrefix(header, prefix) {

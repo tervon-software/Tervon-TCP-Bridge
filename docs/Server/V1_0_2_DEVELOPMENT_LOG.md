@@ -1135,3 +1135,13 @@ Running main container remained `RUNNING=true` with image ID `sha256:ce484cdc64c
 - Latest source tests for `1b27127d2d50bcf18d60eac0ff9a1a74a49aa9bc`: `M6 3X-UI adapter tests` PASS (`45282774970`), `M6 runtime ACL source check` PASS (`45282775087`). This is SOURCE CI only, not live E2E.
 - Source inspection: `cmd/m6-auto-registrar/main.go` currently calls `HotACLActivator.Activate` directly and snapshots `configuredServiceNames` at startup; `RuntimePolicyCoordinator` remains unconnected. `RoutePolicyApply` and `AppliedXrayEvidence` are required trusted callbacks, but no verified production binding to active Xray and candidate Decapsulator has been established. No unverified runtime source, Docker target, polling interval, or replacement policy writer may be invented.
 - Status: SINGLE PROCESS APPROVED; LIVE INTEGRATION BLOCKED pending verified runtime-evidence and candidate apply/ACK bindings. Production and Android UNCHANGED. No runtime PASS claimed.
+
+
+### 2026-11-24 — M6 protected panel settings wired to Registrar
+
+- Branch `work/m6-android-ingress`, starting HEAD `5fa81dc10509faf39433f78d2718de1df8df1114`. The code, tests and this entry are recorded in the same commit.
+- Registrar accepts the optional `--panel-config` path and wires the existing 3x-ui inbound adapter into `RuntimePolicyCoordinator.Panel`. The flag carries a file path only. The source reloads the settings and Bearer file on each observation.
+- Settings and credential files must be private regular files. Read errors omit paths and contents. Omitting the flag keeps the existing enrollment path.
+- Changed source: `xui/cmd/m6-auto-registrar/main.go`, `xui/client.go`, `xui/panel_config.go`, `xui/panel_config_test.go` under `integrations/android-ingress`. The settings format is documented in `docs/Server/M6_3XUI_DYNAMIC_ROUTING.md`.
+- SOURCE TEST PASS: `go test -race ./...` in `integrations/android-ingress/xui` with Go 1.23.12 on Linux amd64. Covers settings and credential rotation, private file access and the missing Remnawave adapter.
+- Runtime sync is still disabled. The installer prompt, Remnawave inbound adapter, live Xray callback and production E2E remain pending. No deployment was performed.

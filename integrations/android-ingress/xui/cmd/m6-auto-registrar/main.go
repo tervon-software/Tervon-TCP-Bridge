@@ -137,13 +137,14 @@ func approvedRegistrarImage(image string) bool {
 }
 
 func main() {
-	var root, listen, containerID, expectedImage, expectedLabelKey, expectedLabelValue string
+	var root, listen, containerID, expectedImage, expectedLabelKey, expectedLabelValue, panelConfigPath string
     flag.StringVar(&root, "root", "/etc/tervon/bridge-android", "existing Android Bridge root")
     flag.StringVar(&listen, "listen", "", "loopback address for existing HTTPS proxy (required)")
     flag.StringVar(&containerID, "container-id", "", "running Android ingress Docker container ID")
 	flag.StringVar(&expectedImage, "expected-image", "", "verified running v1.0.2 image (required)")
 	flag.StringVar(&expectedLabelKey, "expected-label-key", "", "verified Docker label key (required)")
 	flag.StringVar(&expectedLabelValue, "expected-label-value", "", "verified Docker label value (required)")
+    flag.StringVar(&panelConfigPath, "panel-config", "", "protected panel settings file")
     flag.Parse()
 	if !approvedRegistrarImage(expectedImage) ||
 		expectedLabelKey == "" || expectedLabelValue == "" {
@@ -181,15 +182,14 @@ func main() {
         }.Confirm,
     }
     // One owner serializes enrollment and future verified route generations.
-    // Route synchronization is not enabled until live Xray and panel evidence
-    // are bound; certificate activation remains operational meanwhile.
+    // Route synchronization stays disabled pending a live Xray binding; certificate activation remains operational meanwhile.
     // The existing Docker verifier is the only policy ACK authority.
-    // No route sync is started without live panel and Xray evidence.
     policyPath := filepath.Join(root,"config/server.json")
     coordinator := &xui.RuntimePolicyCoordinator{
         ConfigPath:policyPath,
         Store:new(xui.ConfirmedRouteStore),
         Activator:activator,
+        Panel:xui.ConfiguredPanelInbounds(panelConfigPath),
         Apply:func(ctx context.Context,routes map[string][]xui.PolicyBackend,
             authorized map[string][]string,digest string)error{
             return xui.ApplyCompletePolicy(ctx,policyPath,routes,authorized,digest,activator.Confirm)
