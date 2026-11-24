@@ -2,6 +2,8 @@
 
 **Защищённый TCP-мост между серверами через HTTPS/2**
 
+**Linux v1.0.2:** [Выпуск и файлы](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.2) · [Установка и контрольная сумма актуального ядра](docs/Server/INSTALL-v1.0.2.ru.md).
+
 **Linux v1.0.1:** [Скачать выпуск](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.1) · [Установка на Linux](docs/Server/INSTALL-v1.0.1.ru.md) · [Что нового](docs/Server/RELEASE_NOTES_v1.0.1.ru.md).
 
 Tervon TCP Bridge соединяет два удалённых участка TCP-сети через один защищённый канал. Он принимает обычное TCP-подключение на одной машине, переносит его данные по HTTP/2 поверх TLS 1.3 и передаёт их назначенному сервису на другой машине.
