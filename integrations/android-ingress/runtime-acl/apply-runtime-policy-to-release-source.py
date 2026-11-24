@@ -69,7 +69,14 @@ def patch_bridge(text):
         "\t}\n",
         "same-generation backend connection",
     )
-    return text
+    return replace_one(
+        text, "\tvar source io.Reader = resp.Body\n",
+        "\tif cl.Metrics != nil {\n"
+        "\t\tcl.Metrics.ObserveTLS(resp.TLS)\n"
+        "\t}\n"
+        "\tvar source io.Reader = resp.Body\n",
+        "count accepted client Bridge streams",
+    )
 
 
 def patch_main(text):
@@ -125,7 +132,24 @@ def patch_main(text):
         "\t\t}\n"
         "\t}()\n"
     )
-    return replace_one(text, anchor, replacement, "core policy initialization")
+    text = replace_one(text, anchor, replacement, "core policy initialization")
+    return replace_one(
+        text, "\tsrv := newBridgeHTTPServer(c.Listen, handler, tlsCfg)\n",
+        "\tmux := http.NewServeMux()\n"
+        '\tmux.Handle("/v2/status", bridgeStatusHandler(policy.AllowsStatus, metrics.ServerStatus))\n'
+        '\tmux.Handle("/", handler)\n'
+        "\tsrv := newBridgeHTTPServer(c.Listen, mux, tlsCfg)\n",
+        "authenticated status handler",
+    )
+
+
+def patch_metrics(text):
+    return text.rstrip() + (
+        "\n\n// ServerStatus reads status without resetting the telemetry rate window.\n"
+        "func (r *Registry) ServerStatus() (bool, string, int64, uint64) {\n"
+        "\treturn r.ready.Load(), r.BuildVersion, int64(time.Since(r.started) / time.Second), r.tls13h2mtls.Load()\n"
+        "}\n"
+    )
 
 
 def main():
@@ -147,8 +171,11 @@ def main():
         target / "bridge.go": patch_bridge((target / "bridge.go").read_text()),
         target / "cmd/bridge/main.go": patch_main((target / "cmd/bridge/main.go").read_text()),
     }
-    for name in HELPERS:
-        path = target / name
+    metrics = target / "telemetry/metrics.go"
+    changes[metrics] = patch_metrics(metrics.read_text())
+    status_helpers = ("bridge_status.go", "bridge_status_test.go")
+    for name in (*HELPERS, *status_helpers):
+        path = target / ("cmd/bridge" if name in status_helpers else "") / name
         if path.exists() or path.is_symlink():
             raise ValueError("existing file must not be overwritten: " + name)
         source = Path(__file__).resolve().parent / name

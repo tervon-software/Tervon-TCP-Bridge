@@ -10,6 +10,8 @@ import (
     "net/http/httptest"
     "testing"
     "time"
+
+    "tervon-tcp-bridge/telemetry"
 )
 
 func policyEcho(t *testing.T, label byte) (string, func()) {
@@ -171,6 +173,7 @@ func TestM6AndroidPortSelectorThreeH2Backends(t *testing.T) {
                 NextProtos:[]string{"h2"},
             }, https.URL+"/v1/stream", item.port)
             defer client.HTTP.CloseIdleConnections()
+            client.Metrics = telemetry.New()
             local, peer := net.Pipe()
             done := make(chan error,1)
             go func(){done <- client.Handle(local)}()
@@ -180,6 +183,9 @@ func TestM6AndroidPortSelectorThreeH2Backends(t *testing.T) {
             if _,err := peer.Write(payload);err != nil {t.Fatal(err)}
             received := make([]byte,len(payload)+1)
             if _,err := io.ReadFull(peer,received);err != nil {t.Fatal(err)}
+            if got := client.Metrics.Snapshot().TLS13H2MTLSRequests; got != 1 {
+                t.Fatalf("client counted %d accepted H2 streams, want 1", got)
+            }
             expected := append([]byte{item.label},payload...)
             if !bytes.Equal(received,expected) {t.Fatalf("port %s reached wrong backend",item.port)}
             _ = peer.Close()

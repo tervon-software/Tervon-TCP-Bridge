@@ -156,3 +156,13 @@ func (policy *RuntimePolicy) Digest() string {
     if snapshot == nil { return "" }
     return snapshot.digest
 }
+
+// AllowsStatus checks the device registration in the current policy.
+func (policy *RuntimePolicy) AllowsStatus(id [sha256.Size]byte) bool {
+    snapshot := policy.current.Load()
+    if snapshot == nil {
+        return false
+    }
+    _, allowed := snapshot.authorized[id]
+    return allowed
+}
