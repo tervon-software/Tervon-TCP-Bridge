@@ -4,7 +4,7 @@
 
 **Linux v1.0.2 (x86-64):** [Скачать актуальный бинарник](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6) · [Установка на Linux](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/2d28fb8afa2621d073a40ad9c6780bbf8777f3bf/docs/Server/INSTALL-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.2).
 
-Tervon TCP Bridge соединяет два удалённых участка TCP-сети через один защищённый канал. Он принимает обычное TCP-подключение на одной машине, переносит его данные по HTTP/2 поверх TLS 1.3 и передаёт их назначенному сервису на другой машине.
+**Tervon TCP Bridge v1.0.2** передаёт двунаправленный TCP-трафик через HTTP/2 и TLS 1.3 с взаимной проверкой сертификатов (mTLS). В схеме с 3x-ui отдельный Registrar сверяет порты панели с работающим Xray. Bridge обновляет маршруты и права доступа вместе, без перезапуска ядра. Проверена работа VLESS TCP, VLESS XHTTP и Trojan TCP, включая подключение через порт, добавленный после запуска. В Android доступен статус сервера и отдельные счётчики потоков на устройстве и на Decapsulator.
 
 Мост создан для инфраструктуры Tervon VPN, но не привязан к конкретному VPN-протоколу. Для него VLESS, Trojan, Shadowsocks или другой TCP-сервис — просто двунаправленный поток байтов. Расшифровывать или разбирать этот поток самому мосту не требуется.
 
