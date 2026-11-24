@@ -2,7 +2,7 @@
 
 **Защищённый TCP-мост между серверами через HTTPS/2**
 
-**Linux v1.0.2 (x86-64):** [Скачать актуальный бинарник](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6) · [Установка на Linux](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/2d28fb8afa2621d073a40ad9c6780bbf8777f3bf/docs/Server/INSTALL-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.2).
+**Linux v1.0.2 (x86-64):** [Скачать актуальный бинарник](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6) · [Установка на Linux](docs/INSTALL-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.2).
 
 **Tervon TCP Bridge v1.0.2** передаёт двунаправленный TCP-трафик через HTTP/2 и TLS 1.3 с взаимной проверкой сертификатов (mTLS). В схеме с 3x-ui отдельный Registrar сверяет порты панели с работающим Xray. Bridge обновляет маршруты и права доступа вместе, без перезапуска ядра. Проверена работа VLESS TCP, VLESS XHTTP и Trojan TCP, включая подключение через порт, добавленный после запуска. В Android доступен статус сервера и отдельные счётчики потоков на устройстве и на Decapsulator.
 
@@ -142,13 +142,13 @@ flowchart TB
 
 **Актуальный выпуск: Linux v1.0.2, x86-64.** Для межсерверной схемы нужны два Linux-узла: Encapsulator (client) и Decapsulator (server). Обе роли используют один бинарник.
 
-Скачайте [актуальную сборку](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) и [файл контрольных сумм](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6). Проверьте SHA256 перед установкой. [Инструкция на русском](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/2d28fb8afa2621d073a40ad9c6780bbf8777f3bf/docs/Server/INSTALL-v1.0.2.ru.md) описывает настройку сертификатов, ACL и запуск через systemd.
+Скачайте [актуальную сборку](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) и [файл контрольных сумм](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6). Проверьте SHA256 перед установкой. [Инструкция на русском](docs/INSTALL-v1.0.2.ru.md) описывает настройку сертификатов, ACL и запуск через systemd.
 
 Автоматическая синхронизация входящих TCP-портов 3x-ui требует Registrar. Для подготовленного вручную маршрута между двумя Linux-узлами достаточно бинарника Bridge и конфигураций обеих ролей.
 
 ### Документация для пользователей
 
-- [Установка v1.0.2 и первоначальная настройка](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/2d28fb8afa2621d073a40ad9c6780bbf8777f3bf/docs/Server/INSTALL-v1.0.2.ru.md)
+- [Установка v1.0.2 и первоначальная настройка](docs/INSTALL-v1.0.2.ru.md)
 - [Архивная инструкция для v1.0.1](docs/INSTALL-v1.0.1.ru.md)
 - [Параметры конфигурации и интеграция с Xray](docs/CONFIGURATION.ru.md)
 - [Диагностика и типовые ошибки](docs/TROUBLESHOOTING.ru.md)
