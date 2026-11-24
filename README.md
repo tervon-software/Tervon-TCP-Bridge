@@ -2,6 +2,8 @@
 
 **Защищённый TCP-мост между серверами через HTTPS/2**
 
+**TervonVPN DPI для Android 1.0.32 (ARM64):** [Скачать APK](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.32/tervonvpndpi-1.0.32%2B33.apk) · [Описание и установка](docs/ANDROID-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/android-v1.0.32) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.32/SHA256SUMS).
+
 **Linux v1.0.2 (x86-64):** [Скачать актуальный бинарник](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6) · [Установка на Linux](docs/INSTALL-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.2).
 
 **Tervon TCP Bridge v1.0.2** передаёт двунаправленный TCP-трафик через HTTP/2 и TLS 1.3 с взаимной проверкой сертификатов (mTLS). В схеме с 3x-ui отдельный Registrar сверяет порты панели с работающим Xray. Bridge обновляет маршруты и права доступа вместе, без перезапуска ядра. Проверена работа VLESS TCP, VLESS XHTTP и Trojan TCP, включая подключение через порт, добавленный после запуска. В Android доступен статус сервера и отдельные счётчики потоков на устройстве и на Decapsulator.
