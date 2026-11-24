@@ -145,6 +145,11 @@ func main() {
 	flag.StringVar(&expectedLabelKey, "expected-label-key", "", "verified Docker label key (required)")
 	flag.StringVar(&expectedLabelValue, "expected-label-value", "", "verified Docker label value (required)")
     flag.StringVar(&panelConfigPath, "panel-config", "", "protected panel settings file")
+    var xraySource xui.XrayRuntimeSource
+    flag.StringVar(&xraySource.ProbePath, "xray-probe", "", "absolute path to the installed live Xray probe")
+    flag.StringVar(&xraySource.OwnerUnit, "xray-owner-unit", "", "systemd unit that starts Xray")
+    flag.StringVar(&xraySource.ExecutableName, "xray-executable", "", "Xray process executable basename")
+    flag.StringVar(&xraySource.BackendAlias, "xray-backend-alias", "", "Xray backend alias in Decapsulator hosts")
     flag.Parse()
 	if !approvedRegistrarImage(expectedImage) ||
 		expectedLabelKey == "" || expectedLabelValue == "" {
@@ -170,26 +175,32 @@ func main() {
     // from the current policy under its lock, never cached at startup.
     remote, serverName, err := discoverBridgeEndpoint(root, containerID, serverCAPEM)
     if err != nil { log.Fatal(err) }
+    decapsulator := xui.DockerPolicyConfirmer{
+        ContainerID:containerID,
+        HostConfigDirectory:filepath.Join(root,"config"),
+        ExpectedImage:expectedImage,
+        ExpectedLabelKey:expectedLabelKey,
+        ExpectedLabelValue:expectedLabelValue,
+    }
     activator := &xui.HotACLActivator{
         Path:filepath.Join(root,"config/server.json"),
-		Digest:xui.FullPolicyConfigDigest,
-		Confirm:xui.DockerPolicyConfirmer{
-            ContainerID:containerID,
-            HostConfigDirectory:filepath.Join(root,"config"),
-			ExpectedImage:expectedImage,
-			ExpectedLabelKey:expectedLabelKey,
-			ExpectedLabelValue:expectedLabelValue,
-        }.Confirm,
+        Digest:xui.FullPolicyConfigDigest,
+        Confirm:decapsulator.Confirm,
     }
-    // One owner serializes enrollment and future verified route generations.
-    // Route synchronization stays disabled pending a live Xray binding; certificate activation remains operational meanwhile.
-    // The existing Docker verifier is the only policy ACK authority.
+    var applied xui.AppliedXrayEvidence
+    if xraySource.ProbePath != "" {
+        xraySource.Decapsulator = decapsulator
+        applied = xraySource.Evidence
+    }
+    // Enrollment and route sync share the same verified Decapsulator.
+    // The route observation is bound here; scheduling is a separate step.
     policyPath := filepath.Join(root,"config/server.json")
     coordinator := &xui.RuntimePolicyCoordinator{
         ConfigPath:policyPath,
         Store:new(xui.ConfirmedRouteStore),
         Activator:activator,
         Panel:xui.ConfiguredPanelInbounds(panelConfigPath),
+        Applied:applied,
         Apply:func(ctx context.Context,routes map[string][]xui.PolicyBackend,
             authorized map[string][]string,digest string)error{
             return xui.ApplyCompletePolicy(ctx,policyPath,routes,authorized,digest,activator.Confirm)

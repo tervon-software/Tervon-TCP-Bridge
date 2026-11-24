@@ -143,10 +143,10 @@ def get_panel(base_url, header_file):
         raise AuditBlocked("PANEL_RESPONSE_INVALID") from None
 
 
-def get_xray_live():
-    proc = Path(f"/proc/{KNOWN_PID}")
+def get_xray_live(pid=KNOWN_PID, executable="xray-linux-amd64", verify_listener=None):
+    proc = Path(f"/proc/{pid}")
     try:
-        if Path(os.readlink(proc / "exe")).name != "xray-linux-amd64":
+        if Path(os.readlink(proc / "exe")).name != executable:
             raise AuditBlocked("XRAY_PROCESS_CHANGED")
         args = [x.decode("utf-8") for x in (proc / "cmdline").read_bytes().split(b"\0") if x]
         paths = []
@@ -168,6 +168,8 @@ def get_xray_live():
         if type(port) is not int or not 1 <= port <= 65535:
             raise AuditBlocked("XRAY_API_UNAVAILABLE")
         endpoint = f"[{address}]:{port}" if ":" in address else f"{address}:{port}"
+        if verify_listener is not None:
+            verify_listener(pid, address, port)
         process = subprocess.run(
             [str(proc / "exe"), "api", "lsi", "--server=" + endpoint,
              "--isOnlyTags=false", "--timeout=3"],
