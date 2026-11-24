@@ -148,6 +148,7 @@ flowchart TB
 
 ### Документация для пользователей
 
+- [TervonVPN на Android: установка APK, подключение Bridge и мониторинг](docs/ANDROID-v1.0.2.ru.md)
 - [Установка v1.0.2 и первоначальная настройка](docs/INSTALL-v1.0.2.ru.md)
 - [Архивная инструкция для v1.0.1](docs/INSTALL-v1.0.1.ru.md)
 - [Параметры конфигурации и интеграция с Xray](docs/CONFIGURATION.ru.md)
