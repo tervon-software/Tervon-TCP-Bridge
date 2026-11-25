@@ -4,7 +4,7 @@
 
 **TervonVPN DPI для Android 1.0.33 (ARM64):** [Скачать APK](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.33/tervonvpndpi-1.0.33%2B34.apk) · [Описание и установка](docs/ANDROID-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/android-v1.0.33) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.33/tervonvpndpi-1.0.33%2B34.apk.sha256).
 
-**Linux v1.0.2 (x86-64):** [Скачать актуальный бинарник](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6) · [Установка на Linux](docs/INSTALL-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.2).
+**Сервер Bridge v1.0.2 M6 (Linux x86-64):** [Скачать актуальный бинарник](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6) · [Установка на Linux](docs/INSTALL-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.2).
 
 **Tervon TCP Bridge v1.0.2** передаёт двунаправленный TCP-трафик через HTTP/2 и TLS 1.3 с взаимной проверкой сертификатов (mTLS). В схеме с 3x-ui отдельный Registrar сверяет порты панели с работающим Xray. Bridge обновляет маршруты и права доступа вместе, без перезапуска ядра. Проверена работа VLESS TCP, VLESS XHTTP и Trojan TCP, включая подключение через порт, добавленный после запуска. В Android доступен статус сервера и отдельные счётчики потоков на устройстве и на Decapsulator.
 
@@ -149,6 +149,8 @@ flowchart TB
 Автоматическая синхронизация входящих TCP-портов 3x-ui требует Registrar. Для подготовленного вручную маршрута между двумя Linux-узлами достаточно бинарника Bridge и конфигураций обеих ролей.
 
 ### Документация для пользователей
+
+- [Сервер Bridge v1.0.2 M6 для Android: установка и примеры Decapsulator, Registrar и 3x-ui](docs/INSTALL-ANDROID-BRIDGE-M6.ru.md)
 
 - [Технологии Bridge v1.0.2: TLS, HTTP/2, Padding, Jitter и метрики](docs/TECHNOLOGIES-v1.0.2.ru.md)
 

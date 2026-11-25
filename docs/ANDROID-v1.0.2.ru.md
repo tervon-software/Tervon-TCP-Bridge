@@ -4,6 +4,8 @@ TervonVPN использует мост (Bridge) для передачи TCP-т�
 
 Для VLESS TCP, VLESS XHTTP поверх TCP и Trojan TCP передача через мост (Bridge) проверена. Проверено также подключение через новый TCP inbound 3x-ui, добавленный после запуска сервера. Возможности моста (Bridge) в конкретной подписке зависят от её настроек и доступных профилей.
 
+**Для администраторов сервера.** См. [пошаговую установку Bridge v1.0.2 M6 для Android](INSTALL-ANDROID-BRIDGE-M6.ru.md).
+
 ## Установка приложения
 
 1. Скачайте [TervonVPN DPI 1.0.33 (сборка 34, ARM64)](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.33/tervonvpndpi-1.0.33%2B34.apk) из [официального Android-выпуска](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/android-v1.0.33).
