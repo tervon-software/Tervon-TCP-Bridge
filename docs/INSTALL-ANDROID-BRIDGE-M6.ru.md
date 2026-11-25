@@ -175,7 +175,7 @@ JSON
 )
 ```
 
-Подставьте фактический systemd unit владельца Xray и имя исполняемого файла. Пример использует `x-ui.service` и `xray-linux-amd64`. Скрипт `live_xray_evidence.py` определяет действующий процесс, получает список inbound от Xray и проверяет доступность TCP backend из сетевого пространства контейнера. Для этой схемы Registrar запускается на хосте рядом с Xray и Docker. Пример серверной настройки предназначен для 3x-ui. В Registrar на закреплённом коммите `type: "remnawave"` возвращает `Remnawave inbound adapter unavailable`. Для подписки Remnawave шаги в Android те же при наличии совместимого сервера Bridge, а этот пример автоматической синхронизации inbound для Remnawave не применяется.
+Подставьте фактический systemd unit владельца Xray и имя исполняемого файла. Пример использует `x-ui.service` и `xray-linux-amd64`. Скрипт `live_xray_evidence.py` определяет действующий процесс, получает список inbound от Xray и проверяет доступность TCP backend из сетевого пространства контейнера. Для этой схемы Registrar запускается на хосте рядом с Xray и Docker. Пример серверной настройки предназначен для 3x-ui. Для Remnawave нужен Registrar из [ветки M6 с подключённым адаптером](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/a7734397f426266e4a1e95f048644c671f6a90c0/docs/Server/M6_3XUI_DYNAMIC_ROUTING.md#remnawave). В его конфигурации задаётся UUID обслуживаемой ноды. Синхронизация проверена с TLS-имитацией API. Полный прогон с реальной панелью и Android ещё открыт.
 
 Для пробного запуска в отдельной консоли:
 
