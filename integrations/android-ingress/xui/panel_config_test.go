@@ -3,7 +3,12 @@ package xui
 import (
 	"context"
 	"encoding/json"
+	"encoding/pem"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -42,7 +47,11 @@ func TestConfiguredPanelSettingsReloadAndPermissions(t *testing.T) {
 	} {
 		set("3x-ui", update.url)
 		write(credentialPath, "Authorization: Bearer "+update.token+"\n")
-		client, err := configuredPanelClient(settingsPath)
+		settings, header, err := loadPanelSettings(settingsPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		client, err := configuredPanelClient(settings, header)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -62,7 +71,59 @@ func TestConfiguredPanelSettingsReloadAndPermissions(t *testing.T) {
 		}
 	}
 	set("remnawave", "https://panel.example")
-	if _, err := source(context.Background()); err == nil || err.Error() != "Remnawave inbound adapter unavailable" {
-		t.Fatal("Remnawave must wait for its inbound adapter")
+	if _, err := source(context.Background()); err == nil || err.Error() != "invalid Remnawave node UUID" {
+		t.Fatal("Remnawave must require an explicit node UUID")
+	}
+}
+
+func TestConfiguredRemnawaveNodeInbounds(t *testing.T) {
+	if config := os.Getenv("TERVON_TEST_REMNA_CONFIG"); config != "" {
+		inbounds, err := ConfiguredPanelInbounds(config)(context.Background())
+		if err != nil || len(inbounds) != 1 || inbounds[0].Port != 7771 {
+			t.Fatalf("unexpected node projection: %+v, %v", inbounds, err)
+		}
+		return
+	}
+
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.Header.Get("Authorization") != "Bearer test-token" {
+			t.Error("unexpected panel request")
+		}
+		switch r.URL.Path {
+		case "/api/nodes/" + nodeID:
+			fmt.Fprintf(w, `{"response":{"uuid":%q,"isDisabled":false,"configProfile":{"activeConfigProfileUuid":%q,"activeInbounds":[{"uuid":%q}]}}}`, nodeID, profileID, activeID)
+		case "/api/config-profiles/" + profileID + "/inbounds":
+			fmt.Fprintf(w, `{"response":[{"uuid":%q,"profileUuid":%q,"port":7771,"type":"vless","network":"tcp"},{"uuid":%q,"profileUuid":%q,"port":7772,"type":"trojan","network":"tcp"}]}`, activeID, profileID, inactiveID, profileID)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	credential := filepath.Join(dir, "api-header")
+	config := filepath.Join(dir, "panel.json")
+	ca := filepath.Join(dir, "ca.pem")
+	body, err := json.Marshal(panelSettings{
+		Type: "remnawave", BaseURL: server.URL, APICredential: credential, NodeUUID: nodeID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})
+	for path, data := range map[string][]byte{
+		config: body, credential: []byte("Authorization: Bearer test-token"), ca: cert,
+	} {
+		if err := os.WriteFile(path, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Start with an empty system-root cache so the TLS fixture can be trusted
+	// without changing the client's production TLS configuration.
+	cmd := exec.Command(os.Args[0], "-test.run=^TestConfiguredRemnawaveNodeInbounds$")
+	cmd.Env = append(os.Environ(), "TERVON_TEST_REMNA_CONFIG="+config, "SSL_CERT_FILE="+ca)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("configured source: %v\n%s", err, output)
 	}
 }

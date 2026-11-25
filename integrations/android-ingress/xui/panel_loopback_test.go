@@ -49,7 +49,11 @@ func TestConfiguredPanelLoopbackKeepsTLSIdentity(t *testing.T) {
 		if err := os.WriteFile(config, body, 0600); err != nil {
 			t.Fatal(err)
 		}
-		client, err := configuredPanelClient(config)
+		settings, header, err := loadPanelSettings(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		client, err := configuredPanelClient(settings, header)
 		if err != nil {
 			t.Fatal(err)
 		}

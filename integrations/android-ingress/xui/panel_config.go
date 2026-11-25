@@ -18,6 +18,7 @@ type panelSettings struct {
 	Type            string `json:"type"`
 	BaseURL         string `json:"base_url"`
 	APICredential   string `json:"credential_file"`
+	NodeUUID        string `json:"node_uuid,omitempty"`
 	ConnectLoopback bool   `json:"connect_loopback,omitempty"`
 }
 
@@ -28,39 +29,61 @@ func ConfiguredPanelInbounds(path string) RouteEvidenceSource {
 		return nil
 	}
 	return func(ctx context.Context) ([]PanelInbound, error) {
-		client, err := configuredPanelClient(path)
+		config, credential, err := loadPanelSettings(path)
 		if err != nil {
 			return nil, err
 		}
-		return client.SelectedBridgeInbounds(ctx)
+		switch config.Type {
+		case "3x-ui":
+			client, err := configuredPanelClient(config, credential)
+			if err != nil {
+				return nil, err
+			}
+			return client.SelectedBridgeInbounds(ctx)
+		case "remnawave":
+			if !remnawaveUUID.MatchString(config.NodeUUID) {
+				return nil, errors.New("invalid Remnawave node UUID")
+			}
+			if config.ConnectLoopback {
+				return nil, errors.New("Remnawave requires direct access to its HTTPS API origin")
+			}
+			token, err := panelBearerToken(credential)
+			if err != nil {
+				return nil, err
+			}
+			client, err := NewRemnawaveClient(config.BaseURL, token)
+			if err != nil {
+				return nil, err
+			}
+			return client.SelectedNodeInbounds(ctx, config.NodeUUID)
+		default:
+			return nil, errors.New("unknown panel type")
+		}
 	}
 }
 
-func configuredPanelClient(path string) (*Client, error) {
+func loadPanelSettings(path string) (panelSettings, []byte, error) {
+	var config panelSettings
 	settings, err := readProtectedPanelFile(path)
 	if err != nil {
-		return nil, errors.New("protected panel settings unavailable")
+		return config, nil, errors.New("protected panel settings unavailable")
 	}
-	var config panelSettings
 	decoder := json.NewDecoder(bytes.NewReader(settings))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(&config) != nil || decoder.Decode(new(json.RawMessage)) != io.EOF {
-		return nil, errors.New("invalid panel settings")
-	}
-	switch config.Type {
-	case "3x-ui":
-	case "remnawave":
-		return nil, errors.New("Remnawave inbound adapter unavailable")
-	default:
-		return nil, errors.New("unknown panel type")
+		return config, nil, errors.New("invalid panel settings")
 	}
 	if !filepath.IsAbs(config.APICredential) {
-		return nil, errors.New("API credential path must be absolute")
+		return config, nil, errors.New("API credential path must be absolute")
 	}
 	credential, err := readProtectedPanelFile(config.APICredential)
 	if err != nil {
-		return nil, errors.New("protected API credential unavailable")
+		return config, nil, errors.New("protected API credential unavailable")
 	}
+	return config, credential, nil
+}
+
+func configuredPanelClient(config panelSettings, credential []byte) (*Client, error) {
 	client, err := newClientFromHeader(config.BaseURL, credential)
 	if err != nil {
 		return nil, err

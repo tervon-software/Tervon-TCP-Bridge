@@ -50,16 +50,24 @@ func NewClientFromHeader(baseURL, headerPath string) (*Client, error) {
 }
 
 func newClientFromHeader(baseURL string, b []byte) (*Client, error) {
+	token, err := panelBearerToken(b)
+	if err != nil {
+		return nil, err
+	}
+	return NewClient(baseURL, token)
+}
+
+func panelBearerToken(b []byte) (string, error) {
 	const prefix = "Authorization: Bearer "
 	header := strings.TrimSpace(string(b))
 	if !strings.HasPrefix(header, prefix) {
-		return nil, errors.New("API credential format invalid")
+		return "", errors.New("API credential format invalid")
 	}
 	token := strings.TrimPrefix(header, prefix)
 	if token == "" || strings.ContainsAny(token, " \t\r\n") {
-		return nil, errors.New("API credential format invalid")
+		return "", errors.New("API credential format invalid")
 	}
-	return NewClient(baseURL, token)
+	return token, nil
 }
 
 // baseURL ends at the secret panel base prefix, before /panel/api.
@@ -75,7 +83,7 @@ func NewClient(baseURL, token string) (*Client, error) {
 	u.Path = strings.TrimRight(u.Path, "/")
 	u.RawPath = ""
 	return &Client{base: u, token: token, httpClient: &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout:       10 * time.Second,
 		CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
 	}}, nil
 }
