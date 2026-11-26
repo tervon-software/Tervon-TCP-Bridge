@@ -165,7 +165,8 @@ flowchart TB
 
 ### Документация для пользователей
 
-- [Единый установщик Android Bridge M6 для native и Docker](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/5809b69b6aeb61296bf1e1238abe6ba69c4ce6c3/docs/Server/INSTALL-M6-UNIFIED.ru.md) — кандидат для новой установки.
+- [Единый установщик Android Bridge M6 для native и Docker](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/aa7c2cbd2a17a64fb6c423bd7abd9ac8050fb799/docs/Server/INSTALL-M6-UNIFIED.ru.md) — кандидат для новой установки.
+- [Межсерверный Bridge: установка на двух Linux-серверах и выбор ролей](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/aa7c2cbd2a17a64fb6c423bd7abd9ac8050fb799/docs/Server/INSTALL-LINUX-PAIR.ru.md).
 
 - [Сервер Bridge v1.0.2 M6 для Android: установка и примеры Decapsulator, Registrar и 3x-ui](docs/INSTALL-ANDROID-BRIDGE-M6.ru.md)
 
