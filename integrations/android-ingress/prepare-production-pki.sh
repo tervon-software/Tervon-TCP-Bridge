@@ -34,15 +34,18 @@ for cmd in openssl install chown chmod python3; do
 done
 # Resolve BEFORE creating keys, directories, or server.json. The user-selected
 # VPN backend is defined by Xray, not by a fixed TCP port in this installer.
-xray_config="${M6_XRAY_CONFIG:-/usr/local/x-ui/bin/config.json}"
-backend_port="$(python3 "$(dirname "$0")/resolve_vless_tcp_port.py" --xray-config "$xray_config")" || {
-  echo "ERROR: VLESS TCP backend selection failed; production PKI unchanged" >&2
-  exit 2
-}
-[[ "$backend_port" =~ ^[0-9]+$ ]] || {
-  echo "ERROR: backend port validation failed" >&2
-  exit 2
-}
+backend_port=""
+if [[ "${M6_EMPTY_POLICY:-0}" != 1 ]]; then
+  xray_config="${M6_XRAY_CONFIG:-/usr/local/x-ui/bin/config.json}"
+  backend_port="$(python3 "$(dirname "$0")/resolve_vless_tcp_port.py" --xray-config "$xray_config")" || {
+    echo "ERROR: VLESS TCP backend selection failed; production PKI unchanged" >&2
+    exit 2
+  }
+  [[ "$backend_port" =~ ^[0-9]+$ ]] || {
+    echo "ERROR: backend port validation failed" >&2
+    exit 2
+  }
+fi
 
 install -d -m 0700 "$dir" "$dir/private" "$dir/config" "$dir/config/pki"
 # Separate CAs: server identity and Android device identities have different trust duties.
@@ -77,6 +80,7 @@ openssl x509 -req -sha256 -days 365 \
 PROD_OUTPUT_DIR="$dir" PROD_DNS_NAME="$name" PROD_TCP_BACKEND_PORT="$backend_port" python3 - <<'PY'
 import json, os, pathlib
 root = pathlib.Path(os.environ["PROD_OUTPUT_DIR"])
+backend_port = os.environ["PROD_TCP_BACKEND_PORT"]
 conf = {
   "mode": "server",
   "listen": "0.0.0.0:8443",
@@ -85,10 +89,10 @@ conf = {
   "ca_file": "/config/pki/client-ca.crt",
   "max_streams": 0,
   "routes": {"vpn": [{"Name":"existing-vless-tcp",
-                       "Address":"host.docker.internal:" + os.environ["PROD_TCP_BACKEND_PORT"]}]},
+                       "Address":"host.docker.internal:" + backend_port}]} if backend_port else {},
   # Deny-all bootstrap: valid hex satisfies the current parser but matches no actual cert.
   # Enrollment must replace it with approved fingerprints before Android access is enabled.
-  "authorized": {"0"*64: ["vpn"]},
+  "authorized": {"0"*64: ["vpn"] if backend_port else []},
   "padding_enabled": True,
   "padding_rate_enabled": True,
   "jitter_enabled": True,
@@ -108,7 +112,11 @@ openssl verify -CAfile "$dir/private/server-ca.crt" \
 
 echo "M6_PRODUCTION_PKI=CREATED"
 echo "M6_PRODUCTION_CONFIG=$dir/config"
-echo "M6_TCP_BACKEND_SOURCE=XRAY_CONFIG"
+if [[ -n "$backend_port" ]]; then
+  echo "M6_TCP_BACKEND_SOURCE=XRAY_CONFIG"
+else
+  echo "M6_TCP_BACKEND_SOURCE=REGISTRAR_SYNC"
+fi
 echo "M6_PRODUCTION_SERVER_NAME=$name"
 echo "M6_PRODUCTION_CLIENT_AUTH=DENY_ALL_UNTIL_ENROLLED"
 echo "M6_PRODUCTION_RUNTIME=NOT_MODIFIED"

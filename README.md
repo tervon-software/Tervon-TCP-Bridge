@@ -142,6 +142,8 @@ flowchart TB
 
 ## Скачать и установить
 
+**Новая установка Android Bridge M6:** [одна команда для native и Docker](docs/Server/INSTALL-M6-UNIFIED.ru.md).
+
 **Поддерживаемый выпуск: Linux v1.0.1, amd64.** Для работы нужны два Linux-сервера с systemd: один в роли Encapsulator (client), второй в роли Decapsulator (server).
 
 ### Клонировать репозиторий

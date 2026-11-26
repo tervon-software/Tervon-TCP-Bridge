@@ -15,21 +15,21 @@ import (
 // XrayRuntimeSource reads the live Xray projection and checks backend TCP
 // reachability from the configured Decapsulator's network namespace.
 type XrayRuntimeSource struct {
-	ProbePath      string
-	OwnerUnit      string
-	ExecutableName string
-	BackendAlias   string
-	Decapsulator   DockerPolicyConfirmer
+	ProbePath       string
+	OwnerUnit       string
+	ExecutableName  string
+	BackendAlias    string
+	DecapsulatorPID func(context.Context) (string, error)
 }
 
 func (s XrayRuntimeSource) Evidence(ctx context.Context) ([]EffectiveInbound, error) {
-	if !filepath.IsAbs(s.ProbePath) || s.OwnerUnit == "" || s.ExecutableName == "" || s.BackendAlias == "" {
+	if !filepath.IsAbs(s.ProbePath) || s.OwnerUnit == "" || s.ExecutableName == "" || s.BackendAlias == "" || s.DecapsulatorPID == nil {
 		return nil, errors.New("live Xray settings incomplete")
 	}
 	ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
 	defer cancel()
 
-	pid, err := s.containerPID(ctx)
+	pid, err := s.DecapsulatorPID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -42,18 +42,18 @@ func (s XrayRuntimeSource) Evidence(ctx context.Context) ([]EffectiveInbound, er
 	if err != nil {
 		return nil, err
 	}
-	current, err := s.containerPID(ctx)
+	current, err := s.DecapsulatorPID(ctx)
 	if err != nil || current != pid {
 		return nil, errors.New("Decapsulator changed during Xray observation")
 	}
 	return evidence, nil
 }
 
-func (s XrayRuntimeSource) containerPID(ctx context.Context) (string, error) {
-	if err := s.Decapsulator.verifyIdentity(ctx); err != nil {
+func (d DockerPolicyConfirmer) PID(ctx context.Context) (string, error) {
+	if err := d.verifyIdentity(ctx); err != nil {
 		return "", err
 	}
-	raw, err := dockerCommand(ctx, "inspect", "--format", "{{.State.Pid}}", s.Decapsulator.ContainerID)
+	raw, err := dockerCommand(ctx, "inspect", "--format", "{{.State.Pid}}", d.ContainerID)
 	pid := strings.TrimSpace(string(raw))
 	n, parseErr := strconv.Atoi(pid)
 	if err != nil || parseErr != nil || n <= 1 {

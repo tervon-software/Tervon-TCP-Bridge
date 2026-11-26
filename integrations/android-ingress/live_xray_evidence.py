@@ -54,6 +54,12 @@ def verify_listener(pid, address, port, allow_wildcard=False):
 
 
 def backend_target(pid, alias):
+    # Native services can use an explicit backend IP. Listener ownership and
+    # reachability are checked the same way as for a Docker host alias.
+    try:
+        return str(ipaddress.ip_address(alias))
+    except ValueError:
+        pass
     addresses = set()
     for line in Path(f"/proc/{pid}/root/etc/hosts").read_text().splitlines():
         fields = line.split("#", 1)[0].split()
