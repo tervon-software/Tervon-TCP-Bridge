@@ -8,8 +8,8 @@ TervonVPN использует мост (Bridge) для передачи TCP-т�
 
 ## Установка приложения
 
-1. Скачайте [TervonVPN DPI 1.0.33 (сборка 34, ARM64)](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.33/tervonvpndpi-1.0.33%2B34.apk) из [официального Android-выпуска](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/android-v1.0.33).
-2. Скачайте [файл SHA-256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.33/tervonvpndpi-1.0.33%2B34.apk.sha256) в тот же каталог. На Linux проверьте файл командой `sha256sum -c 'tervonvpndpi-1.0.33+34.apk.sha256'`.
+1. Скачайте [TervonVPN DPI 1.0.34 (сборка 35, ARM64)](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.34/tervonvpndpi-1.0.34%2B35.apk) из [официального Android-выпуска](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/android-v1.0.34).
+2. Скачайте [файл SHA-256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.34/tervonvpndpi-1.0.34%2B35.apk.sha256) в тот же каталог. На Linux проверьте файл командой `sha256sum -c 'tervonvpndpi-1.0.34+35.apk.sha256'`.
 3. Откройте APK на Android. Если система запросит разрешение для источника установки, разрешите установку только для приложения, которым открываете этот файл.
 4. При обновлении устанавливайте новый APK поверх существующего приложения. Если Android отклоняет установку из-за подписи, получите пакет из того же официального канала, с которого установлена текущая версия. Удаление приложения может привести к потере настроек и регистрации устройства.
 

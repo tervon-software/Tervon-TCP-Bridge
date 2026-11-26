@@ -2,7 +2,7 @@
 
 **Защищённый TCP-мост между серверами через HTTPS/2**
 
-**TervonVPN DPI для Android 1.0.33 (ARM64):** [Скачать APK](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.33/tervonvpndpi-1.0.33%2B34.apk) · [Описание и установка](docs/ANDROID-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/android-v1.0.33) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.33/tervonvpndpi-1.0.33%2B34.apk.sha256).
+**TervonVPN DPI для Android 1.0.34 (ARM64):** [Скачать APK](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.34/tervonvpndpi-1.0.34%2B35.apk) · [Описание и установка](docs/ANDROID-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/android-v1.0.34) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/android-v1.0.34/tervonvpndpi-1.0.34%2B35.apk.sha256).
 
 **Сервер Bridge v1.0.2 M6 (Linux x86-64):** [Скачать актуальный бинарник](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6) · [Установка на Linux](docs/INSTALL-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.2).
 
