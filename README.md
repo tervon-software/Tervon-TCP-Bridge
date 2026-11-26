@@ -6,6 +6,24 @@
 
 **Сервер Bridge v1.0.2 M6 (Linux x86-64):** [Скачать актуальный бинарник](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/tervon-bridge-linux-amd64-v1.0.2-m6) · [SHA256](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/download/v1.0.2/SHA256SUMS-m6) · [Установка на Linux](docs/INSTALL-v1.0.2.ru.md) · [Страница релиза](https://github.com/tervon-software/Tervon-TCP-Bridge/releases/tag/v1.0.2).
 
+## Быстрая установка Bridge
+
+Один [интерактивный установщик](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/aa7c2cbd2a17a64fb6c423bd7abd9ac8050fb799/install.sh) для новых установок на Linux x86-64. На каждом сервере выполните:
+
+```bash
+git clone --branch work/m6-android-ingress git@github.com:tervon-software/Tervon-TCP-Bridge.git
+cd Tervon-TCP-Bridge
+git checkout --detach aa7c2cbd2a17a64fb6c423bd7abd9ac8050fb799
+sudo ./install.sh
+```
+
+| Пункт меню | Что выбрать | Пошаговая инструкция |
+| --- | --- | --- |
+| **1. Android TervonVPN DPI → сервер** | Запустите на сервере с Xray и HTTPS-подпиской. Выберите `native` или `docker`. Установщик настроит Decapsulator, Registrar, сертификаты и Discovery. | [Установка серверной части для Android](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/aa7c2cbd2a17a64fb6c423bd7abd9ac8050fb799/docs/Server/INSTALL-M6-UNIFIED.ru.md) |
+| **2. Linux → Linux** | На отправляющем сервере выберите `Encapsulator → prepare`. На принимающем — `Decapsulator` и передайте ему CSR. Вернитесь на отправляющий, импортируйте выданные сертификаты и выберите `Encapsulator → activate`. | [Установка на двух серверах и выбор ролей](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/aa7c2cbd2a17a64fb6c423bd7abd9ac8050fb799/docs/Server/INSTALL-LINUX-PAIR.ru.md) |
+
+Для предварительной проверки можно запустить `sudo ./install.sh --check`. Межсерверная передача проверена локально с mTLS. Установка на отдельных хостах, реальный запуск Docker и автозапуск после перезагрузки ещё ожидают приёмки.
+
 **Tervon TCP Bridge v1.0.2** передаёт двунаправленный TCP-трафик через HTTP/2 и TLS 1.3 с взаимной проверкой сертификатов (mTLS). В схеме с 3x-ui отдельный Registrar сверяет порты панели с работающим Xray. Bridge обновляет маршруты и права доступа вместе, без перезапуска ядра. Проверена работа VLESS TCP, VLESS XHTTP и Trojan TCP, включая подключение через порт, добавленный после запуска. В Android доступен статус сервера и отдельные счётчики потоков на устройстве и на Decapsulator.
 
 Мост создан для инфраструктуры Tervon VPN, но не привязан к конкретному VPN-протоколу. Для него VLESS, Trojan, Shadowsocks или другой TCP-сервис — просто двунаправленный поток байтов. Расшифровывать или разбирать этот поток самому мосту не требуется.
@@ -165,8 +183,6 @@ flowchart TB
 
 ### Документация для пользователей
 
-- [Единый установщик Android Bridge M6 для native и Docker](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/aa7c2cbd2a17a64fb6c423bd7abd9ac8050fb799/docs/Server/INSTALL-M6-UNIFIED.ru.md) — кандидат для новой установки.
-- [Межсерверный Bridge: установка на двух Linux-серверах и выбор ролей](https://github.com/tervon-software/Tervon-TCP-Bridge/blob/aa7c2cbd2a17a64fb6c423bd7abd9ac8050fb799/docs/Server/INSTALL-LINUX-PAIR.ru.md).
 
 - [Сервер Bridge v1.0.2 M6 для Android: установка и примеры Decapsulator, Registrar и 3x-ui](docs/INSTALL-ANDROID-BRIDGE-M6.ru.md)
 
