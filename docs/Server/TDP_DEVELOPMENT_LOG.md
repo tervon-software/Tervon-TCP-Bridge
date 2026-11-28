@@ -27,3 +27,9 @@ TDP stands for Tervon Dual-path Protocol. Added prototype/tdp/session.go and ses
 Homeserver, Go 1.25.5 linux/amd64: go test -race -count=1 ./... and go vet ./... PASS. SHA-256 session.go: 505e58cc217cedba015b4c34f56e64bacd04ae2e7ed0bc7e9aef4f4515d16019. SHA-256 session_test.go: c8241838dff305c02a3c7277d7f29c4f3b2e297ad78af130814bb1214055eaf8. Both hashes were matched before committing.
 
 The package requires adapters to authenticate the peer and finish backend I/O before detaching. Session discovery, expiry, transport integration and real QUIC-to-TCP acceptance remain pending.
+
+## Bounded session registry
+
+Added prototype/tdp/registry.go and registry_test.go to work/tdp, based on 73c6a414d43ba19b53367eea04736dd297ab4f4d. The registry allocates random session IDs, limits registered sessions, resumes only for the matching peer fingerprint, and releases expired detached sessions. Adapters must call Reap periodically and finish backend I/O before detaching.
+
+Homeserver, Go 1.25.5 linux/amd64: go test -race -count=1 ./... and go vet ./... PASS. Verified SHA-256 of registry.go: 04d03b3ae25d008bc90b9032e430ce2136cbd190e2b7b7c127575ea973a9a885. Verified SHA-256 of registry_test.go: a04ad562522c6370e089e06daf3708d8ca45fd0b3afb12e579f849da321deced. Next: integrate the TCP and QUIC paths with verified mTLS identity and test real failover.
