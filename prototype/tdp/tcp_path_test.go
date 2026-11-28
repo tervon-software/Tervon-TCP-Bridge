@@ -131,9 +131,9 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 	var first *Attachment
 	var clientConn, serverConn io.ReadWriter
 	var closeFirst, dropUDP func()
-	var probeRecovered func(context.Context) error
+	var prepareRecovered func(context.Context) (*quic.Conn, func() (*quic.Stream, *Attachment, error), error)
 	if startQUIC {
-		id, first, clientConn, serverConn, closeFirst, dropUDP, probeRecovered = openLoopbackQUIC(t, PathServer(server), serverTLS, clientTLS)
+		id, first, clientConn, serverConn, closeFirst, dropUDP, prepareRecovered = openLoopbackQUIC(t, PathServer(server), serverTLS, clientTLS)
 	} else {
 		id, first, clientConn, serverConn, closeFirst = open(nil)
 	}
@@ -221,7 +221,8 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 				return err
 			}
 
-			if err := probeRecovered(ctx); err != nil {
+			recovered, acceptRecovered, err := prepareRecovered(ctx)
+			if err != nil {
 				return err
 			}
 			if _, err := registry.Resume(id, sha256.Sum256(der)); !errors.Is(err, ErrSessionBusy) {
@@ -251,6 +252,69 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 			if response != nil {
 				return ErrFrame
 			}
+			if err := <-receivedTCP; err != nil {
+				return err
+			}
+
+			released := make(chan error, 1)
+			go func() {
+				request, err := ReadFrame(nextServer.wire)
+				if err == nil {
+					err = registry.ConfirmRelease(id, next, nextServer.wire, request)
+				}
+				released <- err
+			}()
+			if err := RequestRelease(path.wire); err != nil {
+				return err
+			}
+			if err := <-released; err != nil {
+				return err
+			}
+			clientStream, resumedID, err := OpenQUICPath(ctx, recovered, &id)
+			if err != nil {
+				return err
+			}
+			if resumedID != id {
+				return ErrPathProtocol
+			}
+			serverStream, attachment, err := acceptRecovered()
+			if err != nil {
+				return err
+			}
+			next = attachment
+			for _, stream := range []*quic.Stream{clientStream, serverStream} {
+				if deadline, ok := ctx.Deadline(); ok {
+					if err := stream.SetDeadline(deadline); err != nil {
+						return err
+					}
+				}
+			}
+			recoveredTransfer, err := next.Transfer(1024)
+			if err != nil {
+				return err
+			}
+			recoveredClient := NewFramedPath(clientStream, clientTransfer)
+			recoveredServer := NewFramedPath(serverStream, recoveredTransfer)
+			go func() {
+				ack, err := recoveredServer.Receive(&received)
+				if err != nil {
+					receivedTCP <- err
+					return
+				}
+				if ack == nil || ack.Offset != 21 {
+					receivedTCP <- ErrOffset
+					return
+				}
+				receivedTCP <- recoveredServer.SendACK(ack.Offset)
+			}()
+			if err := recoveredClient.Send([]byte("-quic")); err != nil {
+				return err
+			}
+			if response, err := recoveredClient.Receive(io.Discard); err != nil {
+				return err
+			} else if response != nil {
+				return ErrFrame
+			}
 			return <-receivedTCP
 		},
 	)
@@ -262,7 +326,7 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 	}
 	want := "payload"
 	if startQUIC {
-		want += "-recovery"
+		want += "-recovery-quic"
 	}
 	if received.String() != want {
 		t.Fatalf("duplicate or missing bytes after replay: %q", &received)
@@ -279,7 +343,7 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 	}
 }
 
-func openLoopbackQUIC(t *testing.T, server PathServer, serverTLS, clientTLS *tls.Config) (SessionID, *Attachment, io.ReadWriter, io.ReadWriter, func(), func(), func(context.Context) error) {
+func openLoopbackQUIC(t *testing.T, server PathServer, serverTLS, clientTLS *tls.Config) (SessionID, *Attachment, io.ReadWriter, io.ReadWriter, func(), func(), func(context.Context) (*quic.Conn, func() (*quic.Stream, *Attachment, error), error)) {
 	t.Helper()
 	socket, err := net.ListenPacket("udp4", "127.0.0.1:0")
 	if err != nil {
@@ -340,35 +404,33 @@ func openLoopbackQUIC(t *testing.T, server PathServer, serverTLS, clientTLS *tls
 		_ = client.CloseWithError(0, "")
 		_ = got.conn.CloseWithError(0, "")
 	}
-	probeRecovered := func(ctx context.Context) error {
+	prepareRecovered := func(ctx context.Context) (*quic.Conn, func() (*quic.Stream, *Attachment, error), error) {
 		link.drop.Store(false)
-		probeCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		serverDone := make(chan struct{})
+		result := make(chan accepted, 1)
 		go func() {
-			defer close(serverDone)
-			conn, err := listener.Accept(probeCtx)
+			conn, err := listener.Accept(ctx)
 			if err != nil {
+				result <- accepted{err: err}
 				return
 			}
-			defer conn.CloseWithError(0, "")
-			_, sessionID, attachment, err := server.AcceptQUICPath(probeCtx, conn)
-			if err == nil && attachment != nil {
-				_ = server.Registry.End(sessionID, attachment)
-			}
+			t.Cleanup(func() { _ = conn.CloseWithError(0, "") })
+			stream, id, attachment, err := server.AcceptQUICPath(ctx, conn)
+			result <- accepted{conn, stream, id, attachment, err}
 		}()
-
-		conn, err := quic.DialAddr(probeCtx, listener.Addr().String(), clientTLS, nil)
-		if err == nil {
-			err = ProbeQUICPath(probeCtx, conn)
-			_ = conn.CloseWithError(0, "")
+		conn, err := quic.DialAddr(ctx, listener.Addr().String(), clientTLS, nil)
+		if err != nil {
+			return nil, nil, err
 		}
-		cancel()
-		<-serverDone
-		return err
+		t.Cleanup(func() { _ = conn.CloseWithError(0, "") })
+		if err := ProbeQUICPath(ctx, conn); err != nil {
+			return nil, nil, err
+		}
+		return conn, func() (*quic.Stream, *Attachment, error) {
+			got := <-result
+			return got.stream, got.path, got.err
+		}, nil
 	}
-	return id, got.path, clientStream, got.stream, closePath, func() { link.drop.Store(true) }, probeRecovered
+	return id, got.path, clientStream, got.stream, closePath, func() { link.drop.Store(true) }, prepareRecovered
 }
 
 // testUDPLink drops traffic in both directions without closing the UDP socket.

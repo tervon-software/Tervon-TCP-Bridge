@@ -111,3 +111,9 @@ Homeserver: git diff --check, go test -race -count=1 ./..., go test -race -count
 Branch work/tdp, base d60347772da1730251f834570bd234e31f470fc9. Added RELEASE and RELEASED control frames, RequestRelease and Registry.ConfirmRelease. The server releases the current attachment before writing confirmation, and rejects a stale attachment without releasing the newer one. Detachment preserves the backend and transfer state. Both sides must stop concurrent path I/O before the handshake, and the client must set a deadline.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The release test exchanges control frames over net.Pipe and verifies that resume keeps the original backend. The TCP-to-QUIC return still needs runtime dispatch, quiescing, and the real-socket round-trip test.
+
+## Full transport handoff exercised on loopback sockets
+
+Branch work/tdp, base 217c861d11d3379fabbcd22a606a7763ad55d5f0. Extended tcp_path_test.go. The test drops UDP, continues on TCP, restores UDP and probes a new QUIC connection while TCP remains attached. After another TCP DATA/ACK exchange the test drives RELEASE/RELEASED over TCP, resumes the same ID on the probed QUIC connection, and transfers fresh DATA/ACK there. The sink receives the expected concatenated payload exactly once, and backend identity and one dial are verified. Data goes to a test buffer; the backend fixture is net.Pipe.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The test orchestrates return-to-QUIC and includes only upload payload with ACKs in the reverse direction. Continuous bidirectional forwarding and automatic return in the runtime remain pending.
