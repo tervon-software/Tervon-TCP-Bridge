@@ -14,7 +14,7 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-func TestDuplexResumesOverTCPAfterUDPLoss(t *testing.T) {
+func TestDuplexReturnsToQUICAfterUDPLoss(t *testing.T) {
 	deadline := time.Now().Add(10 * time.Second)
 	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
@@ -130,14 +130,77 @@ func TestDuplexResumesOverTCPAfterUDPLoss(t *testing.T) {
 		t.Fatalf("TCP resume: id=%x err=%v", resumed, err)
 	}
 	secondClient := make(chan error, 1)
-	go func() { secondClient <- RunDuplex(ctx, clientWire, local, transfer) }()
+	tcpCtx, stopTCP := context.WithCancel(ctx)
+	defer stopTCP()
+	go func() { secondClient <- RunDuplex(tcpCtx, clientWire, local, transfer) }()
 	exchange("TCP")
+	link.drop.Store(false)
+	finalServer := make(chan error, 1)
+	go func() {
+		conn, err := listener.Accept(ctx)
+		if err == nil {
+			t.Cleanup(func() { _ = conn.CloseWithError(0, "") })
+			stream, resumed, path, acceptErr := server.AcceptQUICPath(ctx, conn)
+			err = acceptErr
+			if err == nil {
+				err = registry.ServeDuplexPath(ctx, resumed, path, stream, window, time.Second)
+			}
+		}
+		finalServer <- err
+	}()
+	recovered, err := quic.DialAddr(ctx, listener.Addr().String(), clientTLS, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer recovered.CloseWithError(0, "")
+	if err := ProbeQUICPath(ctx, recovered); err != nil {
+		t.Fatal(err)
+	}
+	exchange("TCP after QUIC probe")
+
+	stopTCP()
+	if err := <-secondClient; !errors.Is(err, context.Canceled) {
+		t.Fatalf("stop TCP duplex: %v", err)
+	}
+	if err := clientWire.SetDeadline(deadline); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteFrame(clientWire, Frame{Kind: ReleaseFrame}); err != nil {
+		t.Fatal(err)
+	}
+	for {
+		frame, err := ReadFrame(clientWire)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if frame.Kind == ReleasedFrame {
+			break
+		}
+		// A cumulative ACK may already have been in flight before quiescing.
+		if frame.Kind != AckFrame {
+			t.Fatalf("unexpected frame during release: %+v", frame)
+		}
+		if _, err := transfer.Handle(nil, frame); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := <-secondServer; err != nil {
+		t.Fatal(err)
+	}
+	finalWire, resumed, err := OpenQUICPath(ctx, recovered, &id)
+	if err != nil || resumed != id {
+		t.Fatalf("QUIC resume: id=%x err=%v", resumed, err)
+	}
+	finalClient := make(chan error, 1)
+	go func() { finalClient <- RunDuplex(ctx, finalWire, local, transfer) }()
+	exchange("QUIC after TCP")
+
 	for _, conn := range []*net.TCPConn{app, remote} {
 		if err := conn.CloseWrite(); err != nil {
 			t.Fatal(err)
 		}
 	}
-	for _, done := range []<-chan error{secondClient, secondServer} {
+	for _, done := range []<-chan error{finalClient, finalServer} {
 		if err := <-done; err != nil {
 			t.Fatal(err)
 		}
@@ -147,7 +210,8 @@ func TestDuplexResumesOverTCPAfterUDPLoss(t *testing.T) {
 			t.Fatalf("expected EOF without trailing bytes: %v", err)
 		}
 	}
-	if stats := registry.PathStatsSnapshot(); dials.Load() != 1 || stats.QUICToTCP != 1 {
+	if stats := registry.PathStatsSnapshot(); dials.Load() != 1 || stats.QUICToTCP != 1 || stats.TCPToQUIC != 1 ||
+		stats.TCP.ClosedByReason[PathCloseHandoff] != 1 {
 		t.Fatalf("dials=%d stats=%+v", dials.Load(), stats)
 	}
 }

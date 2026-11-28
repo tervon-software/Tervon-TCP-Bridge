@@ -229,3 +229,9 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. 
 Branch work/tdp, base 25b4038989f9f51fde9ab74bf97e6c8eb91dc2fd. Added duplex_migration_test.go using real loopback sockets and verified mTLS. The test forwards payload in both directions on QUIC, blackholes UDP, applies test-controlled deadlines, awaits server detachment, and resumes the same session over TCP. It transfers more data in both directions, compares bytes, checks EOF without trailing bytes and asserts one backend dial and one QUIC-to-TCP switch.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The test controls deadlines and TCP resume and uses traffic checkpoints before and after loss. Automatic duplex switching, return to QUIC in the duplex loop and CLI integration remain pending.
+
+## Duplex return to QUIC after UDP recovery
+
+Branch work/tdp, base 20e80af47f514d74f4e15f7570e73404fb3d58ac. Extended duplex_migration_test.go to restore UDP, probe the recovered QUIC connection while the TCP attachment is still transferring both directions, release TCP using RELEASE/RELEASED and resume the original session over QUIC. All payload checkpoints compare bytes in both directions. The backend is dialed once, both switch counters increment once, and the TCP close is classified as planned handoff.
+
+Linux amd64, Go 1.23.12: go test -race -count=15 ./tdp and go vet ./tdp passed. The test coordinates quiescence and migration at explicit traffic checkpoints. Automatic switching during ongoing traffic, production acceptance and CLI integration remain pending.
