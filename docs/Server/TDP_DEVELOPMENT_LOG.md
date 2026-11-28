@@ -129,3 +129,9 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. 
 Branch work/tdp, base 70ba6f3172da83612ebc71d8c24058420b71dd2c. Added PathEvent.Reason, reason-aware registry detach/end, and framed I/O failure classification. Frame reads, frame writes, and writes to the receiving sink are distinguished, preserving the original error for errors.Is/errors.As. An adapter explicitly waiting for an ACK can report ack_timeout; a generic read timeout does not infer UDP blocking. Planned RELEASE and ordinary End have separate reasons. Opening events carry no reason. No raw errors or peer identifiers are added to telemetry events.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. Tests cover I/O classification and closure events across the loopback transport cycle, where the test supplies the ACK-timeout observation. Runtime reporting, ACK-wait duration and pending-byte measurements, exporter, and AI Processor integration remain pending.
+
+## Process-local transport statistics snapshot
+
+Branch work/tdp, base 4b36fcfc1a15cc4e7d391c4119104ffcc450eb89. Added path_stats.go and path_stats_test.go. PathStats.Observe consumes registry path events. Snapshot provides separate TCP and QUIC/UDP opens and closes, total and maximum lifetime of closed paths, bounded reason counts and directional switch totals. Unknown reason values are folded into unknown. Snapshots copy the reason maps. Individual lifetimes are still available through close events.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. Unit test validates both switch directions, excludes same-transport reopen from switch counts, and verifies reasons, durations and snapshot isolation. This package is ready to be wired to the registry observer. CLI/runtime wiring, metrics export and AI Processor remain pending.
