@@ -16,11 +16,12 @@ var (
 // The caller must verify mTLS and authorize the route before creating a
 // session. The session registry is responsible for expiration and cleanup.
 type Session struct {
-	mu      sync.Mutex
-	owner   [32]byte
-	backend net.Conn
-	active  *Attachment
-	closed  bool
+	mu       sync.Mutex
+	owner    [32]byte
+	backend  net.Conn
+	active   *Attachment
+	closed   bool
+	transfer *Transfer
 }
 
 // NewSession takes ownership of backend. owner is the SHA-256 fingerprint
@@ -64,6 +65,27 @@ func (a *Attachment) Backend() (net.Conn, error) {
 		return nil, ErrSessionClosed
 	}
 	return s.backend, nil
+}
+
+// Transfer returns the stream state shared by successive paths. A path must
+// stop using the state before detaching, just as it must stop backend I/O.
+func (a *Attachment) Transfer(window int) (*Transfer, error) {
+	s := a.session
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.active != a {
+		return nil, ErrSessionClosed
+	}
+	if s.transfer == nil {
+		transfer, err := NewTransfer(window)
+		if err != nil {
+			return nil, err
+		}
+		s.transfer = transfer
+	} else if s.transfer.send.limit != window {
+		return nil, ErrWindowFull
+	}
+	return s.transfer, nil
 }
 
 // Detach releases the path after its backend I/O has stopped. The backend
