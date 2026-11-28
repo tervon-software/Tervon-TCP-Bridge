@@ -135,3 +135,9 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. 
 Branch work/tdp, base 4b36fcfc1a15cc4e7d391c4119104ffcc450eb89. Added path_stats.go and path_stats_test.go. PathStats.Observe consumes registry path events. Snapshot provides separate TCP and QUIC/UDP opens and closes, total and maximum lifetime of closed paths, bounded reason counts and directional switch totals. Unknown reason values are folded into unknown. Snapshots copy the reason maps. Individual lifetimes are still available through close events.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. Unit test validates both switch directions, excludes same-transport reopen from switch counts, and verifies reasons, durations and snapshot isolation. This package is ready to be wired to the registry observer. CLI/runtime wiring, metrics export and AI Processor remain pending.
+
+## Registry-backed transport counters
+
+Branch work/tdp, base 89db832e1c2852978c2e3a27f0864169001dada9. Wired PathStats into the registry and exposed Registry.PathStatsSnapshot(). Successful path negotiation and path closure update process-local statistics with or without a custom observer. The optional observer still receives individual lifetime and reason events outside the registry lock. PROBE and failed negotiation do not increment opens.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The real-socket loopback test checks separate open/close totals and lifetimes, both switch directions and closure reasons for QUIC-to-TCP-to-QUIC. TCP-only reattachment does not count as a switch. The CLI, exporter and AI Processor do not yet consume the snapshot.

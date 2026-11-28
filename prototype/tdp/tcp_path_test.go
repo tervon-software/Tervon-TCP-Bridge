@@ -378,6 +378,22 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 			t.Fatalf("path event: got %+v, want %+v", got, want)
 		}
 	}
+
+	snapshot := registry.PathStatsSnapshot()
+	if startQUIC {
+		if snapshot.QUICToTCP != 1 || snapshot.TCPToQUIC != 1 ||
+			snapshot.QUICUDP.Opened != 2 || snapshot.QUICUDP.Closed != 2 ||
+			snapshot.TCP.Opened != 1 || snapshot.TCP.Closed != 1 ||
+			snapshot.QUICUDP.ClosedByReason[PathCloseACKTimeout] != 1 ||
+			snapshot.QUICUDP.ClosedByReason[PathCloseNormal] != 1 ||
+			snapshot.TCP.ClosedByReason[PathCloseHandoff] != 1 ||
+			snapshot.TCP.LifetimeTotal <= 0 || snapshot.QUICUDP.LifetimeTotal <= 0 {
+			t.Fatalf("QUIC to TCP to QUIC snapshot: %+v", snapshot)
+		}
+	} else if snapshot.QUICToTCP != 0 || snapshot.TCPToQUIC != 0 ||
+		snapshot.TCP.Opened != 2 || snapshot.TCP.Closed != 2 || snapshot.QUICUDP.Opened != 0 {
+		t.Fatalf("TCP resume snapshot: %+v", snapshot)
+	}
 }
 
 func openLoopbackQUIC(t *testing.T, server PathServer, serverTLS, clientTLS *tls.Config) (SessionID, *Attachment, io.ReadWriter, io.ReadWriter, func(), func(), func(context.Context) (*quic.Conn, func() (*quic.Stream, *Attachment, error), error)) {

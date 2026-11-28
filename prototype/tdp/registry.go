@@ -33,6 +33,7 @@ type Registry struct {
 	grace    time.Duration
 	now      func() time.Time
 	observe  func(PathEvent)
+	stats    PathStats
 }
 
 func NewRegistry(limit int, grace time.Duration) (*Registry, error) {
