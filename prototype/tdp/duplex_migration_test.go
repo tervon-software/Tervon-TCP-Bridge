@@ -130,9 +130,8 @@ func TestDuplexReturnsToQUICAfterUDPLoss(t *testing.T) {
 		t.Fatalf("TCP resume: id=%x err=%v", resumed, err)
 	}
 	secondClient := make(chan error, 1)
-	tcpCtx, stopTCP := context.WithCancel(ctx)
-	defer stopTCP()
-	go func() { secondClient <- RunDuplex(tcpCtx, clientWire, local, transfer) }()
+	releaseTCP := make(chan struct{})
+	go func() { secondClient <- RunDuplexWithRelease(ctx, clientWire, local, transfer, releaseTCP) }()
 	exchange("TCP")
 	link.drop.Store(false)
 	finalServer := make(chan error, 1)
@@ -158,31 +157,9 @@ func TestDuplexReturnsToQUICAfterUDPLoss(t *testing.T) {
 	}
 	exchange("TCP after QUIC probe")
 
-	stopTCP()
-	if err := <-secondClient; !errors.Is(err, context.Canceled) {
-		t.Fatalf("stop TCP duplex: %v", err)
-	}
-	if err := clientWire.SetDeadline(deadline); err != nil {
-		t.Fatal(err)
-	}
-	if err := WriteFrame(clientWire, Frame{Kind: ReleaseFrame}); err != nil {
-		t.Fatal(err)
-	}
-	for {
-		frame, err := ReadFrame(clientWire)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if frame.Kind == ReleasedFrame {
-			break
-		}
-		// A cumulative ACK may already have been in flight before quiescing.
-		if frame.Kind != AckFrame {
-			t.Fatalf("unexpected frame during release: %+v", frame)
-		}
-		if _, err := transfer.Handle(nil, frame); err != nil {
-			t.Fatal(err)
-		}
+	close(releaseTCP)
+	if err := <-secondClient; !errors.Is(err, ErrPathReleased) {
+		t.Fatalf("release TCP duplex: %v", err)
 	}
 	if err := <-secondServer; err != nil {
 		t.Fatal(err)

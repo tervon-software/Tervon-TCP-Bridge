@@ -235,3 +235,9 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. 
 Branch work/tdp, base 20e80af47f514d74f4e15f7570e73404fb3d58ac. Extended duplex_migration_test.go to restore UDP, probe the recovered QUIC connection while the TCP attachment is still transferring both directions, release TCP using RELEASE/RELEASED and resume the original session over QUIC. All payload checkpoints compare bytes in both directions. The backend is dialed once, both switch counters increment once, and the TCP close is classified as planned handoff.
 
 Linux amd64, Go 1.23.12: go test -race -count=15 ./tdp and go vet ./tdp passed. The test coordinates quiescence and migration at explicit traffic checkpoints. Automatic switching during ongoing traffic, production acceptance and CLI integration remain pending.
+
+## Client release handled by the duplex loop
+
+Branch work/tdp, base 1804ffefa26af2b660891d3b6804c52c183390ea. RunDuplexWithRelease accepts a handoff signal. The loop stops requesting new source reads, finishes the in-flight write, sends RELEASE and keeps reading frames until RELEASED. Workers stop before returning ErrPathReleased; pending DATA stays in the same Transfer for replay. The duplex migration test now signals release through this interface in place of manually stopping the loop and writing and reading handoff frames.
+
+Linux amd64, Go 1.23.12: go test -race -count=15 ./tdp and go vet ./tdp passed. The test verifies both directions across QUIC-to-TCP-to-QUIC and one backend dial. The test still supplies the trigger, probe and negotiation; automated runtime scheduling and CLI integration remain pending.

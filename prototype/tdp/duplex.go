@@ -16,6 +16,10 @@ type DuplexWire interface {
 	SetDeadline(time.Time) error
 }
 
+// ErrPathReleased indicates the server confirmed that the current attachment
+// was released. The caller can now resume the same transfer on another path.
+var ErrPathReleased = errors.New("tdp: path released")
+
 var errPeerRelease = errors.New("tdp: peer requested path release")
 
 type duplexRead struct {
@@ -33,10 +37,17 @@ type duplexFrame struct {
 // state until return. The caller discards the wire on return and may reattach
 // the same local connection and transfer after a transport failure.
 func RunDuplex(ctx context.Context, wire DuplexWire, local net.Conn, transfer *Transfer) error {
-	return runDuplex(ctx, wire, local, transfer, false)
+	return RunDuplexWithRelease(ctx, wire, local, transfer, nil)
 }
 
-func runDuplex(ctx context.Context, wire DuplexWire, local net.Conn, transfer *Transfer, allowRelease bool) error {
+// RunDuplexWithRelease requests handoff when release becomes readable.
+// The caller should bound the path lifetime with ctx or wire deadlines.
+// Once RELEASE is sent, a failed exchange requires renegotiation.
+func RunDuplexWithRelease(ctx context.Context, wire DuplexWire, local net.Conn, transfer *Transfer, release <-chan struct{}) error {
+	return runDuplex(ctx, wire, local, transfer, false, release)
+}
+
+func runDuplex(ctx context.Context, wire DuplexWire, local net.Conn, transfer *Transfer, allowRelease bool, release <-chan struct{}) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -95,7 +106,7 @@ func runDuplex(ctx context.Context, wire DuplexWire, local net.Conn, transfer *T
 		}
 	}()
 
-	err := driveDuplex(ctx, local, transfer, budget, localRead, received, write, written, allowRelease)
+	err := driveDuplex(ctx, local, transfer, budget, localRead, received, write, written, allowRelease, release)
 	cancel()
 	if !stopInterrupt() {
 		<-interruptDone
@@ -136,13 +147,14 @@ func queueLocalRead(transfer *Transfer, result duplexRead) error {
 
 func driveDuplex(ctx context.Context, local net.Conn, transfer *Transfer,
 	budget chan<- int, localRead <-chan duplexRead, received <-chan duplexFrame,
-	write chan<- Frame, written <-chan error, allowRelease bool,
+	write chan<- Frame, written <-chan error, allowRelease bool, release <-chan struct{},
 ) error {
 	offset := transfer.send.base
 	var ack *Frame
 	var reading, writing, finSent bool
+	var releasing, releaseSent bool
 	for {
-		if transfer.finAcknowledged && transfer.finishedReceive && ack == nil && !writing {
+		if !releasing && transfer.finAcknowledged && transfer.finishedReceive && ack == nil && !writing {
 			return nil
 		}
 		send := transfer.send
@@ -152,15 +164,18 @@ func driveDuplex(ctx context.Context, local net.Conn, transfer *Transfer,
 		if uint64(room) > remaining {
 			room = int(remaining)
 		}
-		if !reading && !transfer.finishedSend && room > 0 {
+		if !releasing && !reading && !transfer.finishedSend && room > 0 {
 			request = budget
 		}
 		var output chan<- Frame
 		var frame Frame
-		if !writing {
+		if !writing && !releaseSent {
 			switch {
 			case ack != nil:
 				frame = *ack
+				output = write
+			case releasing:
+				frame = Frame{Kind: ReleaseFrame}
 				output = write
 			case offset < send.base+uint64(len(send.pending)):
 				var err error
@@ -177,6 +192,9 @@ func driveDuplex(ctx context.Context, local net.Conn, transfer *Transfer,
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-release:
+			releasing = true
+			release = nil
 		case request <- room:
 			reading = true
 		case result := <-localRead:
@@ -191,6 +209,8 @@ func driveDuplex(ctx context.Context, local net.Conn, transfer *Transfer,
 				offset = frame.Offset + uint64(len(frame.Payload))
 			case FINFrame:
 				finSent = true
+			case ReleaseFrame:
+				releaseSent = true
 			default:
 				ack = nil
 			}
@@ -209,6 +229,9 @@ func driveDuplex(ctx context.Context, local net.Conn, transfer *Transfer,
 					return &pathFailure{reason: PathCloseTransportRead, err: err}
 				}
 				return err
+			}
+			if releaseSent && in.frame.Kind == ReleasedFrame {
+				return ErrPathReleased
 			}
 			if allowRelease && in.frame.Kind == ReleaseFrame {
 				return errPeerRelease

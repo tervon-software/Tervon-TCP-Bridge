@@ -28,7 +28,7 @@ func (r *Registry) ServeDuplexPath(ctx context.Context, id SessionID, attachment
 	if err != nil {
 		return err
 	}
-	err = runDuplex(ctx, wire, backend, transfer, true)
+	err = runDuplex(ctx, wire, backend, transfer, true, nil)
 	switch {
 	case err == nil:
 		return r.End(id, attachment)
