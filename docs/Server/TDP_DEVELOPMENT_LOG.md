@@ -33,3 +33,9 @@ The package requires adapters to authenticate the peer and finish backend I/O be
 Added prototype/tdp/registry.go and registry_test.go to work/tdp, based on 73c6a414d43ba19b53367eea04736dd297ab4f4d. The registry allocates random session IDs, limits registered sessions, resumes only for the matching peer fingerprint, and releases expired detached sessions. Adapters must call Reap periodically and finish backend I/O before detaching.
 
 Homeserver, Go 1.25.5 linux/amd64: go test -race -count=1 ./... and go vet ./... PASS. Verified SHA-256 of registry.go: 04d03b3ae25d008bc90b9032e430ce2136cbd190e2b7b7c127575ea973a9a885. Verified SHA-256 of registry_test.go: a04ad562522c6370e089e06daf3708d8ca45fd0b3afb12e579f849da321deced. Next: integrate the TCP and QUIC paths with verified mTLS identity and test real failover.
+
+## Verified mTLS identity for session open and resume
+
+Added prototype/tdp/mtls.go and prototype/tdp_mtls_test.go on work/tdp, based on 662b9412b5b3dc8ea88fd5b7efcde62c7dacec44. Registry adapters derive the client fingerprint from the verified TLS leaf. A loopback HTTPS test exercises real TLS 1.3 handshakes, rejects a different trusted client certificate, and verifies that the original identity resumes the existing backend. The first run failed when the test set a read deadline after closing net.Pipe. Moving the deadline before End fixed the test.
+
+Homeserver: go test -race -count=1 ./... and go vet ./... PASS. Recovered archive SHA-256 verified for mtls.go (48c1d76708c945778e8f5e303936694c377bc0eb1445e4b39a4a2c1beff2f09c) and tdp_mtls_test.go (81808fbe97149fdb5fa2f9418c71f48ad65ceec194e411830ab152847d2bb64a). TCP/QUIC adapter integration and end-to-end failover remain pending.
