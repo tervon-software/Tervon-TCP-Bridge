@@ -57,3 +57,9 @@ Linux amd64, Go 1.23.12: go test -race -count=1 ./tdp and go vet ./tdp passed. A
 Branch work/tdp, base 679c2e5893e5e90a209a9a722976a6a7b34cd3cb. Added framed_path.go and extended tcp_path_test.go. FramedPath queues outbound DATA before writing, reads and applies DATA/ACK, and can resend the pending window on another negotiated path. Its caller serializes operations and manages deadlines and attachment cleanup.
 
 Linux amd64, Go 1.23.12: go test -race -count=1 ./tdp and go vet ./tdp passed. The test uses two TLS 1.3 exchanges over net.Pipe, drops the first ACK, verifies byte-exact single delivery to an in-memory sink upon replay, and checks the ACK clears the send window. The original backend is retained. Production pumping, QUIC and actual network failover remain pending.
+
+## Shared session negotiation for transport adapters
+
+Branch work/tdp, base 1a098e5c8c4d17542345e360da23c7431db6ed66. Added prototype/tdp/path.go and adapted tcp_path.go. The shared protocol takes a bidirectional stream plus verified TLS state and applies the same ALPN, authorization, OPEN/RESUME and rollback logic. The TCP adapter owns its TLS handshake and negotiation deadline. This establishes the integration point for a QUIC stream.
+
+Linux amd64, Go 1.23.12: go test -race -count=1 ./tdp and go vet ./tdp passed, including the existing mTLS resume and DATA replay test. No QUIC dependency was added. QUIC adapter, continuous pumping and network failover acceptance remain pending.
