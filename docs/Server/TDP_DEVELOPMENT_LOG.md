@@ -152,3 +152,13 @@ Homeserver: git diff --check, go test -race -count=1 ./..., go vet ./... and go 
 - tdp_metrics_test.go: 4ecbb08a564da28fd02a822b9adfa4f14c320b9cc86c5037439449199e6b4f24
 
 Bridge runtime wiring and AI Processor consumption remain pending.
+
+## Inbound frame loop for an attached TDP path
+
+Branch work/tdp, base f05ab9ad8413a2a5be33e6c7f65bd42840aa8cff. Added inbound_path.go and inbound_path_test.go. ServeInboundPath forwards DATA to the backend, confirms delivery, applies incoming ACKs and handles RELEASE. It detaches on transport failure and ends a session on terminal backend write failure. The test checks backend delivery and ACK, retention of the same connection through RELEASE, and the planned-handoff metric.
+
+Homeserver: git diff --check, go test -race -count=1 ./..., go test -race -count=10 ./tdp, go vet ./... and go mod verify passed. Verified source SHA-256:
+- inbound_path.go: c4ac2b61c4deeb568f995dc3ec6ca407ca00ce03d05fc2983c783d339bee59e3
+- inbound_path_test.go: 47424df8b423732586331dfe7b909f7480cc1511720a55aa2d17cd4f85690d99
+
+Backend-to-client forwarding, continuous duplex operation and CLI wiring remain pending.
