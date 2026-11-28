@@ -99,3 +99,9 @@ Homeserver: go test -race -count=1 ./..., go test -race -count=10 ./tdp, go vet 
 - quic_path.go: fa07155d08134a43c2e9efced323ecc5013b6c1203d422fe7616022454f86f74
 
 The test exercises a healthy QUIC probe before OPEN. Probing after recovery while TCP remains attached and coordinated TCP-to-QUIC migration are pending.
+
+## QUIC recovery probe while TCP remains attached
+
+Branch work/tdp, base f77597ef83e09e35b7a0ea9d191d8c21471a655e. Extended tcp_path_test.go to restore UDP after TCP fallback, perform a real authenticated QUIC PROBE on a new connection, verify the original TCP attachment remains active, and send and acknowledge another DATA frame over TCP. The complete received payload is checked and the backend dial count remains one. An initial build failure due to an undefined test identifier was fixed by using the fingerprint of the test certificate.
+
+Homeserver: git diff --check, go test -race -count=1 ./..., go test -race -count=10 ./tdp and go vet ./... passed. Verified source SHA-256: 8e4a4b471efe94a3029ea9fa84b3bc68080babdd3aa1b0f48a2e83e241d4c529. Coordinated migration of the active session back to QUIC remains pending.
