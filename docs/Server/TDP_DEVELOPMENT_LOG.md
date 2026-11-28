@@ -69,3 +69,9 @@ Linux amd64, Go 1.23.12: go test -race -count=1 ./tdp and go vet ./tdp passed, i
 Branch work/tdp, base 661741188081e016b836fe41103da1df69fff136. Pinned quic-go v0.54.1 to retain the existing Go 1.23 baseline. Added quic_path.go, go.sum and dependency metadata in go.mod, and extended tcp_path_test.go. The QUIC adapter uses the shared TDP negotiation over a bidirectional stream with verified TLS state and rejects early data. The loopback test opens TDP over real UDP/QUIC, delivers DATA, closes the QUIC connection before ACK, and explicitly reattaches over real TCP/mTLS. Replay delivers the bytes once, ACK clears the sender window, and the backend dial count stays one.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp, go vet ./tdp and go mod verify passed. The backend fixture is net.Pipe. The test performs a deliberate connection close and explicit resume. Automatic detection of silent UDP loss, continuous duplex pumping, production integration and network acceptance remain pending.
+
+## Silent UDP loss in loopback handoff test
+
+Branch work/tdp, base 04c689a689093f9e73d419bcb306f4c56353d263. Updated tcp_path_test.go. After DATA delivery, the QUIC case drops datagrams in both directions at the server socket wrapper. The server queues an ACK and the client observes a read timeout while the transport is still open. The test then closes the failed path, explicitly detaches and resumes over TCP, and checks single delivery, release of the replay window and one backend dial.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The test controls the deadline and recovery. Continuous duplex forwarding, automatic recovery in the Bridge runtime and production acceptance remain pending.

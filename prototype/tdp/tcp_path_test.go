@@ -9,9 +9,11 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"io"
 	"math/big"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -128,9 +130,9 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 	var id SessionID
 	var first *Attachment
 	var clientConn, serverConn io.ReadWriter
-	var closeFirst func()
+	var closeFirst, dropUDP func()
 	if startQUIC {
-		id, first, clientConn, serverConn, closeFirst = openLoopbackQUIC(t, PathServer(server), serverTLS, clientTLS)
+		id, first, clientConn, serverConn, closeFirst, dropUDP = openLoopbackQUIC(t, PathServer(server), serverTLS, clientTLS)
 	} else {
 		id, first, clientConn, serverConn, closeFirst = open(nil)
 	}
@@ -154,7 +156,22 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 		t.Fatal(err)
 	}
 
-	// Drop the first transport before the receiver sends the ACK.
+	// Remove the path before the ACK reaches the sender.
+	if startQUIC {
+		dropUDP()
+		if err := serverPath.SendACK(7); err != nil {
+			t.Fatal(err)
+		}
+		stream := clientConn.(*quic.Stream)
+		if err := stream.SetReadDeadline(time.Now().Add(150 * time.Millisecond)); err != nil {
+			t.Fatal(err)
+		}
+		_, err := clientPath.Receive(io.Discard)
+		var timeout net.Error
+		if !errors.As(err, &timeout) || !timeout.Timeout() {
+			t.Fatalf("expected ACK read timeout during silent UDP loss, got %v", err)
+		}
+	}
 	closeFirst()
 	registry.Detach(id, first)
 	_, next, nextClientConn, nextServerConn, _ := open(&id)
@@ -191,9 +208,15 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 	}
 }
 
-func openLoopbackQUIC(t *testing.T, server PathServer, serverTLS, clientTLS *tls.Config) (SessionID, *Attachment, io.ReadWriter, io.ReadWriter, func()) {
+func openLoopbackQUIC(t *testing.T, server PathServer, serverTLS, clientTLS *tls.Config) (SessionID, *Attachment, io.ReadWriter, io.ReadWriter, func(), func()) {
 	t.Helper()
-	listener, err := quic.ListenAddr("127.0.0.1:0", serverTLS, nil)
+	socket, err := net.ListenPacket("udp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = socket.Close() })
+	link := &testUDPLink{PacketConn: socket}
+	listener, err := quic.Listen(link, serverTLS, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,5 +266,27 @@ func openLoopbackQUIC(t *testing.T, server PathServer, serverTLS, clientTLS *tls
 		_ = client.CloseWithError(0, "")
 		_ = got.conn.CloseWithError(0, "")
 	}
-	return id, got.path, clientStream, got.stream, closePath
+	return id, got.path, clientStream, got.stream, closePath, func() { link.drop.Store(true) }
+}
+
+// testUDPLink drops traffic in both directions without closing the UDP socket.
+type testUDPLink struct {
+	net.PacketConn
+	drop atomic.Bool
+}
+
+func (l *testUDPLink) ReadFrom(p []byte) (int, net.Addr, error) {
+	for {
+		n, addr, err := l.PacketConn.ReadFrom(p)
+		if err != nil || !l.drop.Load() {
+			return n, addr, err
+		}
+	}
+}
+
+func (l *testUDPLink) WriteTo(p []byte, addr net.Addr) (int, error) {
+	if l.drop.Load() {
+		return len(p), nil
+	}
+	return l.PacketConn.WriteTo(p, addr)
 }
