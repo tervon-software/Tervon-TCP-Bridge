@@ -187,3 +187,9 @@ Homeserver: git diff --check, go test -race -count=1 ./..., go test -race -count
 - transfer.go: a189c9047f7a433d77a3ff373b2be4b94e5d1473c3ce23ede13c051c578fc084
 
 The test simulates a lost FIN_ACK. Automatic FIN emission by the duplex runtime, CLI wiring and full network acceptance remain pending.
+
+## Outbound path framing and source EOF
+
+Branch work/tdp, base ca4396307a1aad9942d34ed28c9a4d04fe617665. Added outbound_path.go and outbound_path_test.go. FramedPath.ForwardNext reads bounded outbound DATA, queues it for replay and sends it. On EOF it records the final offset before writing the last DATA and sends FIN afterwards. If that write fails, another path can replay both. An empty source sends FIN at offset zero.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. Tests use in-memory streams. ForwardNext is a serialized operation; a continuous duplex loop, network acceptance and CLI wiring remain pending.
