@@ -223,3 +223,9 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. 
 Branch work/tdp, base cc8136bb072d3d162fbdc1871e28dcfdfee2a697. Extended mtls_duplex_test.go to exercise authenticated QUIC over a real loopback UDP socket in addition to TCP. Both cases run the same simultaneous request and reply with 257-byte replay windows, compare both payloads, finish both directions via FIN, and check normal closure in the relevant transport statistics.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. This tests each transport individually. Duplex transport migration and CLI wiring remain pending.
+
+## Duplex session resumes on TCP after UDP loss
+
+Branch work/tdp, base 25b4038989f9f51fde9ab74bf97e6c8eb91dc2fd. Added duplex_migration_test.go using real loopback sockets and verified mTLS. The test forwards payload in both directions on QUIC, blackholes UDP, applies test-controlled deadlines, awaits server detachment, and resumes the same session over TCP. It transfers more data in both directions, compares bytes, checks EOF without trailing bytes and asserts one backend dial and one QUIC-to-TCP switch.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The test controls deadlines and TCP resume and uses traffic checkpoints before and after loss. Automatic duplex switching, return to QUIC in the duplex loop and CLI integration remain pending.
