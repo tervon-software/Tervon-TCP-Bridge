@@ -211,3 +211,9 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. 
 Branch work/tdp, base 9691dad3852a4d8099a006b2e49ec46a75b4bb0f. Added Registry.ServeDuplexPath for negotiated server attachments. The server handles RELEASE after the duplex workers have stopped and bounds the confirmation write. Transport failure detaches while retaining the backend; normal FIN completion and terminal backend writes end the session. During cleanup, interrupted local reads with timeout preserve any returned bytes.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The test uses net.Pipe for failed and released paths with a real loopback TCP backend and verifies that both resumes retain the same backend socket. Authenticated listener and client orchestration, full duplex migration acceptance, and CLI wiring remain pending.
+
+## Authenticated TCP duplex loopback
+
+Base 63a231e5ecbb31060d1d9136a0746be93e12d7cc, branch work/tdp. Reused the TDP test TLS fixture and added mtls_duplex_test.go. The test negotiates the TCP path over TLS 1.3 with verified client credentials and drives the same server and client duplex functions over real loopback sockets. Both payloads exceed the 257-byte replay windows and are verified byte for byte. FIN completes in both directions and the registry reports a normal TCP close.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. This test covers one authenticated TCP path. Duplex handoff across QUIC and TCP and CLI wiring remain pending.

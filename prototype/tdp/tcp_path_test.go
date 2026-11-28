@@ -27,36 +27,7 @@ func TestTCPPathResumesBackendOverMTLS(t *testing.T) {
 
 func testPathResumesBackend(t *testing.T, startQUIC bool) {
 	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	template := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(time.Hour),
-		DNSNames:     []string{"tdp.test"},
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-	}
-	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	leaf, err := x509.ParseCertificate(der)
-	if err != nil {
-		t.Fatal(err)
-	}
-	roots := x509.NewCertPool()
-	roots.AddCert(leaf)
-	certificate := tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
-	serverTLS := &tls.Config{
-		Certificates: []tls.Certificate{certificate}, ClientAuth: tls.RequireAndVerifyClientCert,
-		ClientCAs: roots, MinVersion: tls.VersionTLS13, NextProtos: []string{TCPProtocol},
-	}
-	clientTLS := &tls.Config{
-		Certificates: []tls.Certificate{certificate}, RootCAs: roots, ServerName: "tdp.test",
-		MinVersion: tls.VersionTLS13, NextProtos: []string{TCPProtocol},
-	}
+	serverTLS, clientTLS, fingerprint := testPathTLS(t)
 	events := make(chan PathEvent, 16)
 	registry, err := NewObservedRegistry(1, time.Minute, func(event PathEvent) {
 		events <- event
@@ -70,7 +41,7 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 	dials := 0
 	server := TCPServer{
 		Registry:  registry,
-		Authorize: func(peer [32]byte) bool { return peer == sha256.Sum256(der) },
+		Authorize: func(peer [32]byte) bool { return peer == fingerprint },
 		DialBackend: func(context.Context) (net.Conn, error) {
 			dials++
 			return backend, nil
@@ -232,7 +203,7 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 			if err != nil {
 				return err
 			}
-			if _, err := registry.Resume(id, sha256.Sum256(der)); !errors.Is(err, ErrSessionBusy) {
+			if _, err := registry.Resume(id, fingerprint); !errors.Is(err, ErrSessionBusy) {
 				t.Fatalf("PROBE changed TCP attachment: %v", err)
 			}
 
@@ -506,4 +477,39 @@ func (l *testUDPLink) WriteTo(p []byte, addr net.Addr) (int, error) {
 		return len(p), nil
 	}
 	return l.PacketConn.WriteTo(p, addr)
+}
+
+func testPathTLS(t *testing.T) (*tls.Config, *tls.Config, [32]byte) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		DNSNames:     []string{"tdp.test"},
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(leaf)
+	certificate := tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
+	serverTLS := &tls.Config{
+		Certificates: []tls.Certificate{certificate}, ClientAuth: tls.RequireAndVerifyClientCert,
+		ClientCAs: roots, MinVersion: tls.VersionTLS13, NextProtos: []string{TCPProtocol},
+	}
+	clientTLS := &tls.Config{
+		Certificates: []tls.Certificate{certificate}, RootCAs: roots, ServerName: "tdp.test",
+		MinVersion: tls.VersionTLS13, NextProtos: []string{TCPProtocol},
+	}
+	return serverTLS, clientTLS, sha256.Sum256(der)
 }
