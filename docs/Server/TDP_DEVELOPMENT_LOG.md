@@ -217,3 +217,9 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. 
 Base 63a231e5ecbb31060d1d9136a0746be93e12d7cc, branch work/tdp. Reused the TDP test TLS fixture and added mtls_duplex_test.go. The test negotiates the TCP path over TLS 1.3 with verified client credentials and drives the same server and client duplex functions over real loopback sockets. Both payloads exceed the 257-byte replay windows and are verified byte for byte. FIN completes in both directions and the registry reports a normal TCP close.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. This test covers one authenticated TCP path. Duplex handoff across QUIC and TCP and CLI wiring remain pending.
+
+## Authenticated QUIC duplex loopback
+
+Branch work/tdp, base cc8136bb072d3d162fbdc1871e28dcfdfee2a697. Extended mtls_duplex_test.go to exercise authenticated QUIC over a real loopback UDP socket in addition to TCP. Both cases run the same simultaneous request and reply with 257-byte replay windows, compare both payloads, finish both directions via FIN, and check normal closure in the relevant transport statistics.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. This tests each transport individually. Duplex transport migration and CLI wiring remain pending.
