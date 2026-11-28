@@ -17,9 +17,11 @@ var (
 )
 
 type registeredSession struct {
-	session  *Session
-	path     *Attachment
-	deadline time.Time
+	session   *Session
+	path      *Attachment
+	deadline  time.Time
+	transport Transport
+	openedAt  time.Time
 }
 
 // Registry owns registered sessions. Adapters must release paths through
@@ -30,9 +32,16 @@ type Registry struct {
 	limit    int
 	grace    time.Duration
 	now      func() time.Time
+	observe  func(PathEvent)
 }
 
 func NewRegistry(limit int, grace time.Duration) (*Registry, error) {
+	return NewObservedRegistry(limit, grace, nil)
+}
+
+// NewObservedRegistry reports path events after releasing registry locks.
+// The observer may be called concurrently and should return promptly.
+func NewObservedRegistry(limit int, grace time.Duration, observe func(PathEvent)) (*Registry, error) {
 	if limit <= 0 || grace <= 0 {
 		return nil, ErrRegistryConfig
 	}
@@ -41,6 +50,7 @@ func NewRegistry(limit int, grace time.Duration) (*Registry, error) {
 		limit:    limit,
 		grace:    grace,
 		now:      time.Now,
+		observe:  observe,
 	}, nil
 }
 
@@ -107,15 +117,19 @@ func (r *Registry) Detach(id SessionID, path *Attachment) {
 
 func (r *Registry) detach(id SessionID, path *Attachment) bool {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	entry := r.sessions[id]
 	if entry == nil || path == nil || entry.path != path {
+		r.mu.Unlock()
 		return false
 	}
 	path.Detach()
 	entry.path = nil
-	entry.deadline = r.now().Add(r.grace)
+	now := r.now()
+	entry.deadline = now.Add(r.grace)
+	event := r.closedEvent(entry, now)
+	r.mu.Unlock()
+	r.observeClose(event)
 	return true
 }
 
@@ -129,8 +143,11 @@ func (r *Registry) End(id SessionID, path *Attachment) error {
 		return ErrSessionMissing
 	}
 	delete(r.sessions, id)
+	event := r.closedEvent(entry, r.now())
 	r.mu.Unlock()
-	return entry.session.Close()
+	err := entry.session.Close()
+	r.observeClose(event)
+	return err
 }
 
 // Reap closes expired detached sessions. The serving adapter must call it

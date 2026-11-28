@@ -44,7 +44,7 @@ func (s PathServer) acceptQUICStream(ctx context.Context, stream *quic.Stream, s
 		return SessionID{}, nil, err
 	}
 	defer cleanup()
-	return s.acceptPath(ctx, stream, state.TLS, true)
+	return s.acceptPath(ctx, stream, state.TLS, TransportQUIC)
 }
 
 // OpenQUICPath opens or resumes a TDP session over a verified QUIC connection.

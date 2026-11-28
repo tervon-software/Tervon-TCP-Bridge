@@ -117,3 +117,9 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. 
 Branch work/tdp, base 217c861d11d3379fabbcd22a606a7763ad55d5f0. Extended tcp_path_test.go. The test drops UDP, continues on TCP, restores UDP and probes a new QUIC connection while TCP remains attached. After another TCP DATA/ACK exchange the test drives RELEASE/RELEASED over TCP, resumes the same ID on the probed QUIC connection, and transfers fresh DATA/ACK there. The sink receives the expected concatenated payload exactly once, and backend identity and one dial are verified. Data goes to a test buffer; the backend fixture is net.Pipe.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The test orchestrates return-to-QUIC and includes only upload payload with ACKs in the reverse direction. Continuous bidirectional forwarding and automatic return in the runtime remain pending.
+
+## Transport monitoring hooks
+
+Branch work/tdp, base 49d38060ccdce696d242e8732037a60c86c6aa5e. Added optional Registry path observer. Successful negotiated attachments emit an opening event tagged tcp or quic_udp. A previous transport on an opening event marks a successful switch and its direction. Detach and End emit the individual attachment lifetime. Same-transport resume is an opening without a switch. Probes and failed negotiation do not emit successful openings. Events omit peer fingerprints, session IDs, addresses and payload. Lifetimes measure TDP attachments, excluding TLS setup and the detached grace period.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The real-socket handoff test verifies both switch directions and one lifetime event per attachment. Metrics aggregation/export and AI Processor 1.0.3 consumption and control of padding/jitter are separate, pending integrations.

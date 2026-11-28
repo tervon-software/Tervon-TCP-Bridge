@@ -57,7 +57,10 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 		Certificates: []tls.Certificate{certificate}, RootCAs: roots, ServerName: "tdp.test",
 		MinVersion: tls.VersionTLS13, NextProtos: []string{TCPProtocol},
 	}
-	registry, err := NewRegistry(1, time.Minute)
+	events := make(chan PathEvent, 16)
+	registry, err := NewObservedRegistry(1, time.Minute, func(event PathEvent) {
+		events <- event
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,6 +343,36 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 	}
 	if err := registry.End(id, next); err != nil {
 		t.Fatal(err)
+	}
+
+	wantEvents := []PathEvent{
+		{Transport: TransportTCP, Opened: true},
+		{Transport: TransportTCP},
+		{Transport: TransportTCP, Opened: true},
+		{Transport: TransportTCP},
+	}
+	if startQUIC {
+		wantEvents = []PathEvent{
+			{Transport: TransportQUIC, Opened: true},
+			{Transport: TransportQUIC},
+			{Transport: TransportTCP, PreviousTransport: TransportQUIC, Opened: true},
+			{Transport: TransportTCP},
+			{Transport: TransportQUIC, PreviousTransport: TransportTCP, Opened: true},
+			{Transport: TransportQUIC},
+		}
+	}
+	if len(events) != len(wantEvents) {
+		t.Fatalf("path event count: got %d, want %d", len(events), len(wantEvents))
+	}
+	for _, want := range wantEvents {
+		got := <-events
+		if !got.Opened && got.Lifetime <= 0 {
+			t.Fatalf("closed path has no lifetime: %+v", got)
+		}
+		got.Lifetime = 0
+		if got != want {
+			t.Fatalf("path event: got %+v, want %+v", got, want)
+		}
 	}
 }
 

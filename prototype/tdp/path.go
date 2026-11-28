@@ -32,7 +32,7 @@ type PathServer struct {
 
 // acceptPath handles negotiation after the transport's TLS handshake.
 // The transport adapter is responsible for bounding the stream I/O.
-func (s PathServer) acceptPath(ctx context.Context, conn io.ReadWriter, state tls.ConnectionState, allowProbe bool) (SessionID, *Attachment, error) {
+func (s PathServer) acceptPath(ctx context.Context, conn io.ReadWriter, state tls.ConnectionState, transport Transport) (SessionID, *Attachment, error) {
 	if s.Registry == nil || s.Authorize == nil || s.DialBackend == nil {
 		return SessionID{}, nil, ErrRegistryConfig
 	}
@@ -55,7 +55,7 @@ func (s PathServer) acceptPath(ctx context.Context, conn io.ReadWriter, state tl
 	}
 	switch request[0] {
 	case probePath:
-		if !allowProbe {
+		if transport != TransportQUIC {
 			return id, nil, ErrPathProtocol
 		}
 		return id, nil, writePathMessage(conn, []byte{pathOK})
@@ -94,6 +94,7 @@ func (s PathServer) acceptPath(ctx context.Context, conn io.ReadWriter, state tl
 		}
 		return SessionID{}, nil, err
 	}
+	s.Registry.observeOpen(id, attachment, transport)
 	return id, attachment, nil
 }
 
