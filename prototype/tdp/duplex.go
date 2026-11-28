@@ -16,6 +16,8 @@ type DuplexWire interface {
 	SetDeadline(time.Time) error
 }
 
+var errPeerRelease = errors.New("tdp: peer requested path release")
+
 type duplexRead struct {
 	data []byte
 	err  error
@@ -31,6 +33,10 @@ type duplexFrame struct {
 // state until return. The caller discards the wire on return and may reattach
 // the same local connection and transfer after a transport failure.
 func RunDuplex(ctx context.Context, wire DuplexWire, local net.Conn, transfer *Transfer) error {
+	return runDuplex(ctx, wire, local, transfer, false)
+}
+
+func runDuplex(ctx context.Context, wire DuplexWire, local net.Conn, transfer *Transfer, allowRelease bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -89,7 +95,7 @@ func RunDuplex(ctx context.Context, wire DuplexWire, local net.Conn, transfer *T
 		}
 	}()
 
-	err := driveDuplex(ctx, local, transfer, budget, localRead, received, write, written)
+	err := driveDuplex(ctx, local, transfer, budget, localRead, received, write, written, allowRelease)
 	cancel()
 	if !stopInterrupt() {
 		<-interruptDone
@@ -103,7 +109,13 @@ func RunDuplex(ctx context.Context, wire DuplexWire, local net.Conn, transfer *T
 	// before returning ownership of the local connection to the caller.
 	select {
 	case result := <-localRead:
-		err = errors.Join(err, queueLocalRead(transfer, result))
+		var timeout net.Error
+		if errors.As(result.err, &timeout) && timeout.Timeout() {
+			result.err = nil
+		}
+		if readErr := queueLocalRead(transfer, result); readErr != nil {
+			err = errors.Join(err, readErr)
+		}
 	default:
 	}
 	return errors.Join(err, local.SetDeadline(time.Time{}))
@@ -124,7 +136,7 @@ func queueLocalRead(transfer *Transfer, result duplexRead) error {
 
 func driveDuplex(ctx context.Context, local net.Conn, transfer *Transfer,
 	budget chan<- int, localRead <-chan duplexRead, received <-chan duplexFrame,
-	write chan<- Frame, written <-chan error,
+	write chan<- Frame, written <-chan error, allowRelease bool,
 ) error {
 	offset := transfer.send.base
 	var ack *Frame
@@ -198,8 +210,14 @@ func driveDuplex(ctx context.Context, local net.Conn, transfer *Transfer,
 				}
 				return err
 			}
+			if allowRelease && in.frame.Kind == ReleaseFrame {
+				return errPeerRelease
+			}
 			reply, err := transfer.Handle(local, in.frame)
 			if err != nil {
+				if PathFailureReason(err) == PathCloseBackendWrite {
+					return err
+				}
 				if reply != nil && !errors.Is(err, ErrOffset) {
 					return &pathFailure{reason: PathCloseBackendWrite, err: err}
 				}

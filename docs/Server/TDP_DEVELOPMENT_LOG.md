@@ -205,3 +205,9 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. 
 Branch work/tdp, base b455e98f2953097afd5d48f480a35856020fb8b4. Added duplex.go and duplex_test.go. RunDuplex owns transfer state and forwards DATA, cumulative ACK and FIN in both directions with a single wire writer. Source reads are bounded by replay capacity. On path exit it interrupts pending I/O, joins workers and retains any bytes concurrently consumed from the local connection. The caller retains the local connection for a possible resume and discards the old wire.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The loopback test simultaneously transfers 32768 bytes in each direction with 257-byte replay windows over real TCP sockets, compares both directions byte-for-byte and completes the FIN exchange. The test uses an already negotiated-path abstraction with plain TCP as its wire. RELEASE dispatch, integration in the authenticated transport runtime, duplex migration acceptance and CLI wiring remain pending.
+
+## Server duplex attachment lifecycle
+
+Branch work/tdp, base 9691dad3852a4d8099a006b2e49ec46a75b4bb0f. Added Registry.ServeDuplexPath for negotiated server attachments. The server handles RELEASE after the duplex workers have stopped and bounds the confirmation write. Transport failure detaches while retaining the backend; normal FIN completion and terminal backend writes end the session. During cleanup, interrupted local reads with timeout preserve any returned bytes.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The test uses net.Pipe for failed and released paths with a real loopback TCP backend and verifies that both resumes retain the same backend socket. Authenticated listener and client orchestration, full duplex migration acceptance, and CLI wiring remain pending.
