@@ -52,7 +52,7 @@ func (t *Transfer) ReceiveOffset() uint64 {
 // Handle applies an inbound frame. A DATA frame produces a cumulative ACK
 // even on partial delivery. An inbound ACK produces no response.
 func (t *Transfer) Handle(dst io.Writer, frame Frame) (*Frame, error) {
-	if !validFrame(frame.Kind, frame.Offset, len(frame.Payload)) {
+	if (frame.Kind != DataFrame && frame.Kind != AckFrame) || !validFrame(frame.Kind, frame.Offset, len(frame.Payload)) {
 		return nil, ErrFrame
 	}
 	if frame.Kind == AckFrame {

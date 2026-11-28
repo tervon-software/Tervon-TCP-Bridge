@@ -105,3 +105,9 @@ The test exercises a healthy QUIC probe before OPEN. Probing after recovery whil
 Branch work/tdp, base f77597ef83e09e35b7a0ea9d191d8c21471a655e. Extended tcp_path_test.go to restore UDP after TCP fallback, perform a real authenticated QUIC PROBE on a new connection, verify the original TCP attachment remains active, and send and acknowledge another DATA frame over TCP. The complete received payload is checked and the backend dial count remains one. An initial build failure due to an undefined test identifier was fixed by using the fingerprint of the test certificate.
 
 Homeserver: git diff --check, go test -race -count=1 ./..., go test -race -count=10 ./tdp and go vet ./... passed. Verified source SHA-256: 8e4a4b471efe94a3029ea9fa84b3bc68080babdd3aa1b0f48a2e83e241d4c529. Coordinated migration of the active session back to QUIC remains pending.
+
+## Coordinated release before resuming over another transport
+
+Branch work/tdp, base d60347772da1730251f834570bd234e31f470fc9. Added RELEASE and RELEASED control frames, RequestRelease and Registry.ConfirmRelease. The server releases the current attachment before writing confirmation, and rejects a stale attachment without releasing the newer one. Detachment preserves the backend and transfer state. Both sides must stop concurrent path I/O before the handshake, and the client must set a deadline.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The release test exchanges control frames over net.Pipe and verifies that resume keeps the original backend. The TCP-to-QUIC return still needs runtime dispatch, quiescing, and the real-socket round-trip test.

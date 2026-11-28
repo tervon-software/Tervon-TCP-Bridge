@@ -102,16 +102,21 @@ func (r *Registry) Resume(id SessionID, peer [32]byte) (*Attachment, error) {
 
 // Detach starts the grace period after all backend I/O on path has stopped.
 func (r *Registry) Detach(id SessionID, path *Attachment) {
+	r.detach(id, path)
+}
+
+func (r *Registry) detach(id SessionID, path *Attachment) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	entry := r.sessions[id]
 	if entry == nil || path == nil || entry.path != path {
-		return
+		return false
 	}
 	path.Detach()
 	entry.path = nil
 	entry.deadline = r.now().Add(r.grace)
+	return true
 }
 
 // End removes the session and closes the backend for the current path.
