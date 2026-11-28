@@ -9,13 +9,22 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"io"
 	"math/big"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/quic-go/quic-go"
 )
 
 func TestTCPPathResumesBackendOverMTLS(t *testing.T) {
+	t.Run("TCP to TCP", func(t *testing.T) { testPathResumesBackend(t, false) })
+	t.Run("QUIC to TCP", func(t *testing.T) { testPathResumesBackend(t, true) })
+}
+
+func testPathResumesBackend(t *testing.T, startQUIC bool) {
+	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +76,23 @@ func TestTCPPathResumesBackendOverMTLS(t *testing.T) {
 		t.Helper()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		clientSide, serverSide := net.Pipe()
+		listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer listener.Close()
+		if err := listener.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		clientSide, err := (&net.Dialer{}).DialContext(ctx, "tcp4", listener.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = clientSide.Close() })
+		serverSide, err := listener.AcceptTCP()
+		if err != nil {
+			t.Fatal(err)
+		}
 		closePath := func() {
 			_ = clientSide.Close()
 			_ = serverSide.Close()
@@ -100,7 +125,15 @@ func TestTCPPathResumesBackendOverMTLS(t *testing.T) {
 		}
 		return id, got.path, clientConn, serverConn, closePath
 	}
-	id, first, clientConn, serverConn, closeFirst := open(nil)
+	var id SessionID
+	var first *Attachment
+	var clientConn, serverConn io.ReadWriter
+	var closeFirst func()
+	if startQUIC {
+		id, first, clientConn, serverConn, closeFirst = openLoopbackQUIC(t, PathServer(server), serverTLS, clientTLS)
+	} else {
+		id, first, clientConn, serverConn, closeFirst = open(nil)
+	}
 	clientTransfer, err := NewTransfer(1024)
 	if err != nil {
 		t.Fatal(err)
@@ -156,4 +189,59 @@ func TestTCPPathResumesBackendOverMTLS(t *testing.T) {
 	if err := registry.End(id, next); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func openLoopbackQUIC(t *testing.T, server PathServer, serverTLS, clientTLS *tls.Config) (SessionID, *Attachment, io.ReadWriter, io.ReadWriter, func()) {
+	t.Helper()
+	listener, err := quic.ListenAddr("127.0.0.1:0", serverTLS, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	type accepted struct {
+		conn   *quic.Conn
+		stream *quic.Stream
+		id     SessionID
+		path   *Attachment
+		err    error
+	}
+	result := make(chan accepted, 1)
+	go func() {
+		conn, err := listener.Accept(ctx)
+		if err != nil {
+			result <- accepted{err: err}
+			return
+		}
+		stream, id, path, err := server.AcceptQUICPath(ctx, conn)
+		if err != nil {
+			_ = conn.CloseWithError(1, "")
+		}
+		result <- accepted{conn, stream, id, path, err}
+	}()
+	client, err := quic.DialAddr(ctx, listener.Addr().String(), clientTLS, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = client.CloseWithError(0, "") })
+	clientStream, id, err := OpenQUICPath(ctx, client, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := <-result
+	if got.err != nil || got.id != id {
+		t.Fatalf("QUIC accept: id=%x err=%v", got.id, got.err)
+	}
+	t.Cleanup(func() { _ = got.conn.CloseWithError(0, "") })
+	for _, stream := range []*quic.Stream{clientStream, got.stream} {
+		if err := stream.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	closePath := func() {
+		_ = client.CloseWithError(0, "")
+		_ = got.conn.CloseWithError(0, "")
+	}
+	return id, got.path, clientStream, got.stream, closePath
 }
