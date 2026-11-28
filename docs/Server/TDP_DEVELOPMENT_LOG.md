@@ -162,3 +162,13 @@ Homeserver: git diff --check, go test -race -count=1 ./..., go test -race -count
 - inbound_path_test.go: 47424df8b423732586331dfe7b909f7480cc1511720a55aa2d17cd4f85690d99
 
 Backend-to-client forwarding, continuous duplex operation and CLI wiring remain pending.
+
+## Bound outbound reads by available replay space
+
+Branch work/tdp, base e5c941398ef6a64211702f9140bec51c288c58df. Added outbound_frame.go and outbound_frame_test.go. Transfer.ReadOutbound reads at most the available replay capacity and frame size and retains bytes before returning DATA. A full window does not consume the source. A partial ACK frees space, and bytes returned alongside EOF are retained at their original offset.
+
+Homeserver: git diff --check, go test -race -count=1 ./..., go test -race -count=10 ./tdp, go vet ./... and go mod verify passed. Verified source SHA-256:
+- outbound_frame.go: 736bea74d227831f2486861a5ece63c98b43fe308986ac4391114b39c9563b39
+- outbound_frame_test.go: 9f97e34b28bb36b60cff506f220748332b50e3dc41cba45d65f6cb9f9f42f404
+
+Concurrent duplex pumping, backend EOF handling at the protocol level, and CLI wiring remain pending.
