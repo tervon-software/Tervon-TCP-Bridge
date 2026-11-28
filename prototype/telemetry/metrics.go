@@ -11,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"tervon-tcp-bridge/tdp"
 )
 
 // Reason is a fixed-cardinality error category. Do not add user-controlled labels.
@@ -27,6 +29,7 @@ const (
 )
 
 type Snapshot struct {
+	TDP                   *TDPMetrics       `json:"tdp,omitempty"`
 	BuildVersion          string            `json:"build_version"`
 	BuildCommit           string            `json:"build_commit"`
 	Ready                 bool              `json:"ready"`
@@ -59,6 +62,7 @@ type Snapshot struct {
 // Registry is safe for concurrent data-plane updates and infrequent snapshots.
 // Rates are calculated between snapshots; consumers should scrape at fixed intervals.
 type Registry struct {
+	tdpRegistry    atomic.Pointer[tdp.Registry]
 	BuildVersion   string
 	BuildCommit    string
 	maxSessions    atomic.Int64
@@ -224,6 +228,9 @@ func (r *Registry) Snapshot() Snapshot {
 	r.lastUp = up
 	r.lastDown = down
 	r.mu.Unlock()
+	if registry := r.tdpRegistry.Load(); registry != nil {
+		s.TDP = newTDPMetrics(registry.PathStatsSnapshot())
+	}
 	return s
 }
 

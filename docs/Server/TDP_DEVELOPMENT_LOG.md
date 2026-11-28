@@ -141,3 +141,14 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. 
 Branch work/tdp, base 89db832e1c2852978c2e3a27f0864169001dada9. Wired PathStats into the registry and exposed Registry.PathStatsSnapshot(). Successful path negotiation and path closure update process-local statistics with or without a custom observer. The optional observer still receives individual lifetime and reason events outside the registry lock. PROBE and failed negotiation do not increment opens.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The real-socket loopback test checks separate open/close totals and lifetimes, both switch directions and closure reasons for QUIC-to-TCP-to-QUIC. TCP-only reattachment does not count as a switch. The CLI, exporter and AI Processor do not yet consume the snapshot.
+
+## Optional TDP metrics in the local Bridge snapshot
+
+Branch work/tdp, base 4d20393b2f11334284211cc5d82a5e53fb258a90. Added an optional tdp object to /metrics/v1, configured via telemetry.Registry.SetTDPRegistry. It exports separate TCP and QUIC/UDP open and close totals, closure reasons, lifetime totals and maxima in seconds, and both switch directions. Without a configured TDP registry the object is omitted and the existing schema identifier stays unchanged.
+
+Homeserver: git diff --check, go test -race -count=1 ./..., go vet ./... and go mod verify passed. Tests verify the optional JSON object and conversion of nonzero lifetimes and counters. All three source SHA-256 hashes matched before committing:
+- metrics.go: e7dfa80fda0a5200e025d24bf2581881341959b0d5005c08230caffa97c3043d
+- tdp_metrics.go: 84ba3715c271ba3888d4b07302a8305063920f23cbacb77cf42993d6e7909b19
+- tdp_metrics_test.go: 4ecbb08a564da28fd02a822b9adfa4f14c320b9cc86c5037439449199e6b4f24
+
+Bridge runtime wiring and AI Processor consumption remain pending.
