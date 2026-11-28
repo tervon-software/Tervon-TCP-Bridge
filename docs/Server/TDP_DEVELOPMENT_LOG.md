@@ -19,3 +19,11 @@ Added a receive cursor for one stream direction. It skips already delivered byte
 Added prototype/tdp/frame.go and frame_test.go. Frame version 1 uses a 12-byte header: version (1 byte), kind (1 byte), big-endian payload length (2 bytes), and big-endian logical stream offset (8 bytes). DATA carries up to 32 KiB. ACK carries the next committed offset and has no payload. Reject unsupported versions and malformed headers before allocating a payload. A partial transport write invalidates the current path.
 
 Package checks on Linux amd64, Go 1.23.12: go test -race -count=1 ./tdp and go vet ./tdp passed. The frame version check does not negotiate session capabilities. Authenticated session attachment, TCP/QUIC integration and failover acceptance remain pending.
+
+## Session ownership and backend lifetime
+
+TDP stands for Tervon Dual-path Protocol. Added prototype/tdp/session.go and session_test.go on work/tdp, based on dffc8164fc761badc83325203b2b2e409e545c0c. A session owns one backend TCP connection and admits one attachment for the fingerprint provided by the verified mTLS peer. Detach preserves the backend, a stale detach cannot release a newer attachment, and explicit session close closes the backend. The loopback test uses synthetic fingerprints and exercises the same accepted TCP connection before and after detach.
+
+Homeserver, Go 1.25.5 linux/amd64: go test -race -count=1 ./... and go vet ./... PASS. SHA-256 session.go: 505e58cc217cedba015b4c34f56e64bacd04ae2e7ed0bc7e9aef4f4515d16019. SHA-256 session_test.go: c8241838dff305c02a3c7277d7f29c4f3b2e297ad78af130814bb1214055eaf8. Both hashes were matched before committing.
+
+The package requires adapters to authenticate the peer and finish backend I/O before detaching. Session discovery, expiry, transport integration and real QUIC-to-TCP acceptance remain pending.
