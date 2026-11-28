@@ -193,3 +193,9 @@ The test simulates a lost FIN_ACK. Automatic FIN emission by the duplex runtime,
 Branch work/tdp, base ca4396307a1aad9942d34ed28c9a4d04fe617665. Added outbound_path.go and outbound_path_test.go. FramedPath.ForwardNext reads bounded outbound DATA, queues it for replay and sends it. On EOF it records the final offset before writing the last DATA and sends FIN afterwards. If that write fails, another path can replay both. An empty source sends FIN at offset zero.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. Tests use in-memory streams. ForwardNext is a serialized operation; a continuous duplex loop, network acceptance and CLI wiring remain pending.
+
+## TCP backend response after TDP FIN
+
+Branch work/tdp, base bf0a1cdc1ddaeda7ec22d3ff0e8116957a9c488a. Added tcp_half_close_test.go. A real loopback TCP backend reads the request to EOF after a TDP FIN. It then writes a response and half-closes its own write side. TDP delivers the response in multiple frames and confirms both directional FINs. The same registered backend/socket stays in use. The TDP frame wire in this test is an in-memory buffer and data flow is sequential.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. Continuous duplex forwarding and CLI wiring remain pending.
