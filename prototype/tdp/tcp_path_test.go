@@ -1,6 +1,7 @@
 package tdp
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -62,13 +63,18 @@ func TestTCPPathResumesBackendOverMTLS(t *testing.T) {
 		},
 	}
 
-	open := func(resume *SessionID) (SessionID, *Attachment) {
+	open := func(resume *SessionID) (SessionID, *Attachment, *tls.Conn, *tls.Conn, func()) {
 		t.Helper()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		clientSide, serverSide := net.Pipe()
-		defer clientSide.Close()
-		defer serverSide.Close()
+		closePath := func() {
+			_ = clientSide.Close()
+			_ = serverSide.Close()
+		}
+		t.Cleanup(closePath)
+		clientConn := tls.Client(clientSide, clientTLS)
+		serverConn := tls.Server(serverSide, serverTLS)
 		type accepted struct {
 			id   SessionID
 			path *Attachment
@@ -76,10 +82,10 @@ func TestTCPPathResumesBackendOverMTLS(t *testing.T) {
 		}
 		result := make(chan accepted, 1)
 		go func() {
-			id, path, err := server.AcceptPath(ctx, tls.Server(serverSide, serverTLS))
+			id, path, err := server.AcceptPath(ctx, serverConn)
 			result <- accepted{id, path, err}
 		}()
-		id, err := OpenTCPPath(ctx, tls.Client(clientSide, clientTLS), resume)
+		id, err := OpenTCPPath(ctx, clientConn, resume)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -87,11 +93,62 @@ func TestTCPPathResumesBackendOverMTLS(t *testing.T) {
 		if got.err != nil || got.id != id {
 			t.Fatalf("accept: id=%x err=%v", got.id, got.err)
 		}
-		return id, got.path
+		for _, conn := range []*tls.Conn{clientConn, serverConn} {
+			if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return id, got.path, clientConn, serverConn, closePath
 	}
-	id, first := open(nil)
+	id, first, clientConn, serverConn, closeFirst := open(nil)
+	clientTransfer, err := NewTransfer(1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverTransfer, err := first.Transfer(1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientPath := NewFramedPath(clientConn, clientTransfer)
+	serverPath := NewFramedPath(serverConn, serverTransfer)
+	var received bytes.Buffer
+	sent := make(chan error, 1)
+	go func() { sent <- clientPath.Send([]byte("payload")) }()
+	if ack, err := serverPath.Receive(&received); err != nil || ack == nil || ack.Offset != 7 {
+		t.Fatalf("first receive: ACK=%v err=%v", ack, err)
+	}
+	if err := <-sent; err != nil {
+		t.Fatal(err)
+	}
+
+	// Drop the first transport before the receiver sends the ACK.
+	closeFirst()
 	registry.Detach(id, first)
-	_, next := open(&id)
+	_, next, nextClientConn, nextServerConn, _ := open(&id)
+	nextTransfer, err := next.Transfer(1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nextClient := NewFramedPath(nextClientConn, clientTransfer)
+	nextServer := NewFramedPath(nextServerConn, nextTransfer)
+	go func() { sent <- nextClient.Replay() }()
+	ack, err := nextServer.Receive(&received)
+	if err != nil || ack == nil || ack.Offset != 7 || received.String() != "payload" {
+		t.Fatalf("replay: ACK=%v data=%q err=%v", ack, &received, err)
+	}
+	if err := <-sent; err != nil {
+		t.Fatal(err)
+	}
+	go func() { sent <- nextServer.SendACK(ack.Offset) }()
+	if response, err := nextClient.Receive(nil); err != nil || response != nil {
+		t.Fatalf("ACK handling: response=%v err=%v", response, err)
+	}
+	if err := <-sent; err != nil {
+		t.Fatal(err)
+	}
+	if len(clientTransfer.send.pending) != 0 {
+		t.Fatal("ACK did not release the send window")
+	}
 	conn, err := next.Backend()
 	if err != nil || conn != backend || dials != 1 {
 		t.Fatalf("resumed backend=%v dials=%d err=%v", conn == backend, dials, err)

@@ -51,3 +51,9 @@ Linux amd64, Go 1.23.12: go test -race -count=1 ./tdp and go vet ./tdp passed. T
 Branch work/tdp, base bc19ea0ac83b4380d127a65777adb20f5ee760e1. Added tcp_path.go and tcp_path_test.go. Client and server negotiate TDP v1 via TLS ALPN. The server requires a verified peer certificate, checks authorization on open and resume, uses a service-scoped registry, and bounds negotiation with a context deadline. OPEN dials the configured backend. RESUME submits the session ID and reattaches to the original backend. No CLI integration or production listener is enabled by this change.
 
 Linux amd64, Go 1.23.12: go test -race -count=1 ./tdp and go vet ./tdp passed. A TLS 1.3 test over net.Pipe verifies one backend dial across OPEN and RESUME. Frame pumping, QUIC and real network failover acceptance remain pending.
+
+## DATA and ACK exchange on an attached path
+
+Branch work/tdp, base 679c2e5893e5e90a209a9a722976a6a7b34cd3cb. Added framed_path.go and extended tcp_path_test.go. FramedPath queues outbound DATA before writing, reads and applies DATA/ACK, and can resend the pending window on another negotiated path. Its caller serializes operations and manages deadlines and attachment cleanup.
+
+Linux amd64, Go 1.23.12: go test -race -count=1 ./tdp and go vet ./tdp passed. The test uses two TLS 1.3 exchanges over net.Pipe, drops the first ACK, verifies byte-exact single delivery to an in-memory sink upon replay, and checks the ACK clears the send window. The original backend is retained. Production pumping, QUIC and actual network failover remain pending.
