@@ -45,3 +45,9 @@ Homeserver: go test -race -count=1 ./... and go vet ./... PASS. Recovered archiv
 Branch work/tdp, base e51d31d4a986c609bfdb3d4cd2d771a83fa47eae. Added transfer.go and transfer_test.go and linked the transfer state to session.go. DATA and ACK processing now share a send window and receive cursor across attachments. The test drops an ACK, reattaches, replays the pending frame and checks the destination receives the payload exactly once.
 
 Linux amd64, Go 1.23.12: go test -race -count=1 ./tdp and go vet ./tdp passed. This exercises the stream state without real TCP/QUIC path switching. Transport adapters and network acceptance remain pending.
+
+## Experimental TCP path negotiation
+
+Branch work/tdp, base bc19ea0ac83b4380d127a65777adb20f5ee760e1. Added tcp_path.go and tcp_path_test.go. Client and server negotiate TDP v1 via TLS ALPN. The server requires a verified peer certificate, checks authorization on open and resume, uses a service-scoped registry, and bounds negotiation with a context deadline. OPEN dials the configured backend. RESUME submits the session ID and reattaches to the original backend. No CLI integration or production listener is enabled by this change.
+
+Linux amd64, Go 1.23.12: go test -race -count=1 ./tdp and go vet ./tdp passed. A TLS 1.3 test over net.Pipe verifies one backend dial across OPEN and RESUME. Frame pumping, QUIC and real network failover acceptance remain pending.
