@@ -87,3 +87,15 @@ Linux amd64, Go 1.23.12: go test -race -count=5 ./tdp and go vet ./tdp passed. R
 Branch work/tdp, base ab3023ec9c135c3a0e986828f2c0de67461704f5. Updated tcp_path_test.go to exercise RunWithTCPFallback with real QUIC/UDP and TCP/mTLS sockets. The QUIC case blocks UDP after DATA delivery, observes an ACK read timeout and lets the runner initiate TCP RESUME and replay. The test verifies the same session ID, exactly-once delivery to the sink, acknowledgment of replayed data and a single backend dial. The test still supplies the read deadline and explicitly detaches server state on first path cleanup. The backend fixture is net.Pipe.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. Continuous bidirectional forwarding and independent server-side path failure handling are still pending.
+
+## Authenticated QUIC round-trip probe
+
+Branch work/tdp, base 0ab4e9b476cc921ae8595c976f4f3070c0899d77. Added PROBE to the QUIC path handshake, using a dedicated stream, existing mTLS route authorization and a bounded deadline. The probe does not claim a session or dial a backend. The real-socket test probes immediately before opening the QUIC session and verifies only one backend dial across the test.
+
+Homeserver: go test -race -count=1 ./..., go test -race -count=10 ./tdp, go vet ./..., go mod verify and git diff --check passed. All four source SHA-256 hashes matched before committing.
+- path.go: 65184619a0b13f9ab85e08530626fbb7459b7b61cfcf9ed6ae04542a101b4cf1
+- tcp_path.go: 5ce758733a28747b38d19dacb5f825a3be371d2973914e926caa03fffbbc2d01
+- tcp_path_test.go: 0e5267b93617149424caa5d212d0f9886b46cb199bae2e1755773654810316e4
+- quic_path.go: fa07155d08134a43c2e9efced323ecc5013b6c1203d422fe7616022454f86f74
+
+The test exercises a healthy QUIC probe before OPEN. Probing after recovery while TCP remains attached and coordinated TCP-to-QUIC migration are pending.

@@ -279,6 +279,9 @@ func openLoopbackQUIC(t *testing.T, server PathServer, serverTLS, clientTLS *tls
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = client.CloseWithError(0, "") })
+	if err := ProbeQUICPath(ctx, client); err != nil {
+		t.Fatalf("QUIC probe: %v", err)
+	}
 	clientStream, id, err := OpenQUICPath(ctx, client, nil)
 	if err != nil {
 		t.Fatal(err)

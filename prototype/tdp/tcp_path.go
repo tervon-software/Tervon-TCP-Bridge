@@ -27,7 +27,7 @@ func (s TCPServer) AcceptPath(ctx context.Context, conn *tls.Conn) (SessionID, *
 	if err := conn.HandshakeContext(ctx); err != nil {
 		return SessionID{}, nil, err
 	}
-	return PathServer(s).acceptPath(ctx, conn, conn.ConnectionState())
+	return PathServer(s).acceptPath(ctx, conn, conn.ConnectionState(), false)
 }
 
 // OpenTCPPath negotiates a new session or resumes the supplied session ID.

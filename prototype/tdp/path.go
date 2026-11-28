@@ -17,6 +17,7 @@ var ErrPathDenied = errors.New("tdp: transport path not authorized")
 const (
 	openPath   byte = 1
 	resumePath byte = 2
+	probePath  byte = 3
 	pathOK     byte = 0
 )
 
@@ -31,7 +32,7 @@ type PathServer struct {
 
 // acceptPath handles negotiation after the transport's TLS handshake.
 // The transport adapter is responsible for bounding the stream I/O.
-func (s PathServer) acceptPath(ctx context.Context, conn io.ReadWriter, state tls.ConnectionState) (SessionID, *Attachment, error) {
+func (s PathServer) acceptPath(ctx context.Context, conn io.ReadWriter, state tls.ConnectionState, allowProbe bool) (SessionID, *Attachment, error) {
 	if s.Registry == nil || s.Authorize == nil || s.DialBackend == nil {
 		return SessionID{}, nil, ErrRegistryConfig
 	}
@@ -53,6 +54,11 @@ func (s PathServer) acceptPath(ctx context.Context, conn io.ReadWriter, state tl
 		return id, nil, err
 	}
 	switch request[0] {
+	case probePath:
+		if !allowProbe {
+			return id, nil, ErrPathProtocol
+		}
+		return id, nil, writePathMessage(conn, []byte{pathOK})
 	case openPath:
 		backend, err := s.DialBackend(ctx)
 		if err != nil {
