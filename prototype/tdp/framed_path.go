@@ -34,6 +34,9 @@ func (p *FramedPath) Replay() error {
 	for {
 		frame, err := p.transfer.Pending(offset)
 		if err == io.EOF {
+			if p.transfer.finishedSend && !p.transfer.finAcknowledged {
+				return p.write(p.transfer.FinishSend())
+			}
 			return nil
 		}
 		if err != nil {

@@ -20,6 +20,8 @@ const (
 	AckFrame      FrameKind = 2
 	ReleaseFrame  FrameKind = 3
 	ReleasedFrame FrameKind = 4
+	FINFrame      FrameKind = 5
+	FINAckFrame   FrameKind = 6
 )
 
 var ErrFrame = errors.New("tdp: invalid frame")
@@ -37,7 +39,7 @@ func validFrame(kind FrameKind, offset uint64, size int) bool {
 	switch kind {
 	case DataFrame:
 		return size > 0 && size <= MaxFramePayload && uint64(size) <= math.MaxUint64-offset
-	case AckFrame:
+	case AckFrame, FINFrame, FINAckFrame:
 		return size == 0
 	case ReleaseFrame, ReleasedFrame:
 		return size == 0 && offset == 0

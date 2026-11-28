@@ -5,8 +5,12 @@ import "io"
 // Transfer holds the send window and receive cursor of one logical stream
 // endpoint. Calls must be serialized by the transport adapter.
 type Transfer struct {
-	send    *Replay
-	receive Receiver
+	send            *Replay
+	receive         Receiver
+	finishedSend    bool
+	finishedReceive bool
+	finAcknowledged bool
+	finOffset       uint64
 }
 
 func NewTransfer(window int) (*Transfer, error) {
@@ -19,6 +23,9 @@ func NewTransfer(window int) (*Transfer, error) {
 
 // Queue retains outbound bytes before the adapter attempts to send them.
 func (t *Transfer) Queue(payload []byte) (Frame, error) {
+	if t.finishedSend {
+		return Frame{}, ErrSendFinished
+	}
 	if len(payload) == 0 || len(payload) > MaxFramePayload {
 		return Frame{}, ErrFrame
 	}
@@ -52,12 +59,23 @@ func (t *Transfer) ReceiveOffset() uint64 {
 // Handle applies an inbound frame. A DATA frame produces a cumulative ACK
 // even on partial delivery. An inbound ACK produces no response.
 func (t *Transfer) Handle(dst io.Writer, frame Frame) (*Frame, error) {
-	if (frame.Kind != DataFrame && frame.Kind != AckFrame) || !validFrame(frame.Kind, frame.Offset, len(frame.Payload)) {
+	if !validFrame(frame.Kind, frame.Offset, len(frame.Payload)) {
 		return nil, ErrFrame
 	}
-	if frame.Kind == AckFrame {
+	switch frame.Kind {
+	case AckFrame:
 		return nil, t.send.Acknowledge(frame.Offset)
+	case FINFrame:
+		return t.receiveFIN(dst, frame.Offset)
+	case FINAckFrame:
+		return nil, t.acknowledgeFIN(frame.Offset)
+	case DataFrame:
+		if t.finishedReceive && frame.Offset+uint64(len(frame.Payload)) > t.receive.next {
+			return nil, ErrFrame
+		}
+		next, err := t.receive.Deliver(dst, frame.Offset, frame.Payload)
+		return &Frame{Kind: AckFrame, Offset: next}, err
+	default:
+		return nil, ErrFrame
 	}
-	next, err := t.receive.Deliver(dst, frame.Offset, frame.Payload)
-	return &Frame{Kind: AckFrame, Offset: next}, err
 }

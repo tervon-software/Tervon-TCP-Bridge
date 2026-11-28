@@ -39,6 +39,9 @@ func (r *Registry) ServeInboundPath(id SessionID, attachment *Attachment, wire i
 		}
 		ack, err := transfer.Handle(backend, frame)
 		if err != nil {
+			if PathFailureReason(err) == PathCloseBackendWrite {
+				return errors.Join(err, r.EndWithReason(id, attachment, PathCloseBackendWrite))
+			}
 			if ack != nil && !errors.Is(err, ErrOffset) {
 				return errors.Join(
 					&pathFailure{reason: PathCloseBackendWrite, err: err},
@@ -48,7 +51,7 @@ func (r *Registry) ServeInboundPath(id SessionID, attachment *Attachment, wire i
 			return err
 		}
 		if ack != nil {
-			if err := path.SendACK(ack.Offset); err != nil {
+			if err := path.write(*ack); err != nil {
 				return err
 			}
 		}

@@ -9,6 +9,9 @@ import (
 // window before returning. The caller must serialize access to the Transfer.
 // A returned DATA frame is valid even when the reader also returns an error.
 func (t *Transfer) ReadOutbound(src io.Reader, scratch []byte) (Frame, error) {
+	if t.finishedSend {
+		return Frame{}, ErrSendFinished
+	}
 	if len(scratch) == 0 {
 		return Frame{}, io.ErrShortBuffer
 	}

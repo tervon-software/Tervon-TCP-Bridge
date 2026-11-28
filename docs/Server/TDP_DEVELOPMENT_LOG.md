@@ -172,3 +172,18 @@ Homeserver: git diff --check, go test -race -count=1 ./..., go test -race -count
 - outbound_frame_test.go: 9f97e34b28bb36b60cff506f220748332b50e3dc41cba45d65f6cb9f9f42f404
 
 Concurrent duplex pumping, backend EOF handling at the protocol level, and CLI wiring remain pending.
+
+## Reliable one-direction stream completion
+
+Branch work/tdp, base 26546e2487ecd8b34bbbd3ecc724049e6868a93f. Added FIN and FIN_ACK control frames. The receiver validates the final offset before half-closing the destination, handles duplicate FIN without another CloseWrite, and can still send in the reverse direction. A subsequent path replays pending DATA and unacknowledged FIN in order. The inbound loop writes both ACK types.
+
+Homeserver: git diff --check, go test -race -count=1 ./..., go test -race -count=10 ./tdp, go vet ./... and go mod verify passed. Verified source SHA-256:
+- finish.go: 7b52deedbb4449042daec951eeb0902eab8eed641dcb1e4cdfe6efbd6d9c5e57
+- finish_test.go: c441f6d4c0b257f1596a52ac62a3511fee8f572884793f436c20e350a47d5b47
+- frame.go: 9ee5244cd808dd526f55949d2dbb697fd0b28b154b2838d1a13a6a48097e033e
+- framed_path.go: 38f0fcfd54d20ff2ccf9a412ee40d7ea905cb457efd71db178420234a25004bd
+- inbound_path.go: 69aaa5f1b3f905c20d3b7c3e91a852cd2aaaf920314b798e832487e73ee9085e
+- outbound_frame.go: c2f3efe2d41b5dde7b30232d1aa5d6bec16ad268152a8f2542ed569f1722df91
+- transfer.go: a189c9047f7a433d77a3ff373b2be4b94e5d1473c3ce23ede13c051c578fc084
+
+The test simulates a lost FIN_ACK. Automatic FIN emission by the duplex runtime, CLI wiring and full network acceptance remain pending.
