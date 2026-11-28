@@ -156,7 +156,7 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 		t.Fatal(err)
 	}
 
-	// Remove the path before the ACK reaches the sender.
+	// The sender has data in its window, but the first ACK cannot arrive.
 	if startQUIC {
 		dropUDP()
 		if err := serverPath.SendACK(7); err != nil {
@@ -166,35 +166,66 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 		if err := stream.SetReadDeadline(time.Now().Add(150 * time.Millisecond)); err != nil {
 			t.Fatal(err)
 		}
-		_, err := clientPath.Receive(io.Discard)
-		var timeout net.Error
-		if !errors.As(err, &timeout) || !timeout.Timeout() {
-			t.Fatalf("expected ACK read timeout during silent UDP loss, got %v", err)
-		}
+	} else {
+		closeFirst()
 	}
-	closeFirst()
-	registry.Detach(id, first)
-	_, next, nextClientConn, nextServerConn, _ := open(&id)
-	nextTransfer, err := next.Transfer(1024)
-	if err != nil {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var next *Attachment
+	serverDone := make(chan error, 1)
+	err = RunWithTCPFallback(ctx, id, clientTransfer, clientConn,
+		func() {
+			closeFirst()
+			registry.Detach(id, first)
+		},
+		func(_ context.Context, resumeID SessionID) (io.ReadWriteCloser, error) {
+			if resumeID != id {
+				t.Fatalf("resume changed session ID: %x", resumeID)
+			}
+			_, attachment, nextClientConn, nextServerConn, _ := open(&resumeID)
+			next = attachment
+			nextTransfer, err := next.Transfer(1024)
+			if err != nil {
+				return nil, err
+			}
+			nextServer := NewFramedPath(nextServerConn, nextTransfer)
+			go func() {
+				ack, err := nextServer.Receive(&received)
+				if err != nil {
+					serverDone <- err
+					return
+				}
+				if ack == nil || ack.Offset != 7 {
+					serverDone <- ErrOffset
+					return
+				}
+				serverDone <- nextServer.SendACK(ack.Offset)
+			}()
+			return nextClientConn, nil
+		},
+		func(_ context.Context, path *FramedPath) error {
+			response, err := path.Receive(io.Discard)
+			if next == nil && startQUIC {
+				var timeout net.Error
+				if !errors.As(err, &timeout) || !timeout.Timeout() {
+					t.Fatalf("expected ACK timeout during silent UDP loss, got %v", err)
+				}
+			}
+			if response != nil {
+				t.Fatalf("unexpected DATA while waiting for ACK: %v", response)
+			}
+			return err
+		},
+	)
+	if err != nil || next == nil {
+		t.Fatalf("fallback: resumed=%v err=%v", next != nil, err)
+	}
+	if err := <-serverDone; err != nil {
 		t.Fatal(err)
 	}
-	nextClient := NewFramedPath(nextClientConn, clientTransfer)
-	nextServer := NewFramedPath(nextServerConn, nextTransfer)
-	go func() { sent <- nextClient.Replay() }()
-	ack, err := nextServer.Receive(&received)
-	if err != nil || ack == nil || ack.Offset != 7 || received.String() != "payload" {
-		t.Fatalf("replay: ACK=%v data=%q err=%v", ack, &received, err)
-	}
-	if err := <-sent; err != nil {
-		t.Fatal(err)
-	}
-	go func() { sent <- nextServer.SendACK(ack.Offset) }()
-	if response, err := nextClient.Receive(nil); err != nil || response != nil {
-		t.Fatalf("ACK handling: response=%v err=%v", response, err)
-	}
-	if err := <-sent; err != nil {
-		t.Fatal(err)
+	if received.String() != "payload" {
+		t.Fatalf("duplicate or missing bytes after replay: %q", &received)
 	}
 	if len(clientTransfer.send.pending) != 0 {
 		t.Fatal("ACK did not release the send window")
