@@ -182,7 +182,11 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 	err = RunWithTCPFallback(ctx, id, clientTransfer, clientConn,
 		func() {
 			closeFirst()
-			registry.Detach(id, first)
+			reason := PathCloseTransportRead
+			if startQUIC {
+				reason = PathCloseACKTimeout
+			}
+			registry.DetachWithReason(id, first, reason)
 		},
 		func(_ context.Context, resumeID SessionID) (io.ReadWriteCloser, error) {
 			if resumeID != id {
@@ -347,18 +351,18 @@ func testPathResumesBackend(t *testing.T, startQUIC bool) {
 
 	wantEvents := []PathEvent{
 		{Transport: TransportTCP, Opened: true},
-		{Transport: TransportTCP},
+		{Transport: TransportTCP, Reason: PathCloseTransportRead},
 		{Transport: TransportTCP, Opened: true},
-		{Transport: TransportTCP},
+		{Transport: TransportTCP, Reason: PathCloseNormal},
 	}
 	if startQUIC {
 		wantEvents = []PathEvent{
 			{Transport: TransportQUIC, Opened: true},
-			{Transport: TransportQUIC},
+			{Transport: TransportQUIC, Reason: PathCloseACKTimeout},
 			{Transport: TransportTCP, PreviousTransport: TransportQUIC, Opened: true},
-			{Transport: TransportTCP},
+			{Transport: TransportTCP, Reason: PathCloseHandoff},
 			{Transport: TransportQUIC, PreviousTransport: TransportTCP, Opened: true},
-			{Transport: TransportQUIC},
+			{Transport: TransportQUIC, Reason: PathCloseNormal},
 		}
 	}
 	if len(events) != len(wantEvents) {

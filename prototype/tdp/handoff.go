@@ -26,7 +26,7 @@ func (r *Registry) ConfirmRelease(id SessionID, path *Attachment, wire io.Writer
 	if request.Kind != ReleaseFrame || !validFrame(request.Kind, request.Offset, len(request.Payload)) {
 		return ErrPathProtocol
 	}
-	if !r.detach(id, path) {
+	if !r.detach(id, path, PathCloseHandoff) {
 		return ErrSessionMissing
 	}
 	return pathIOError(WriteFrame(wire, Frame{Kind: ReleasedFrame}))

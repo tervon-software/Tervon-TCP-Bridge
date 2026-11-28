@@ -123,3 +123,9 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. 
 Branch work/tdp, base 49d38060ccdce696d242e8732037a60c86c6aa5e. Added optional Registry path observer. Successful negotiated attachments emit an opening event tagged tcp or quic_udp. A previous transport on an opening event marks a successful switch and its direction. Detach and End emit the individual attachment lifetime. Same-transport resume is an opening without a switch. Probes and failed negotiation do not emit successful openings. Events omit peer fingerprints, session IDs, addresses and payload. Lifetimes measure TDP attachments, excluding TLS setup and the detached grace period.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The real-socket handoff test verifies both switch directions and one lifetime event per attachment. Metrics aggregation/export and AI Processor 1.0.3 consumption and control of padding/jitter are separate, pending integrations.
+
+## Observed reasons for transport closure
+
+Branch work/tdp, base 70ba6f3172da83612ebc71d8c24058420b71dd2c. Added PathEvent.Reason, reason-aware registry detach/end, and framed I/O failure classification. Frame reads, frame writes, and writes to the receiving sink are distinguished, preserving the original error for errors.Is/errors.As. An adapter explicitly waiting for an ACK can report ack_timeout; a generic read timeout does not infer UDP blocking. Planned RELEASE and ordinary End have separate reasons. Opening events carry no reason. No raw errors or peer identifiers are added to telemetry events.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. Tests cover I/O classification and closure events across the loopback transport cycle, where the test supplies the ACK-timeout observation. Runtime reporting, ACK-wait duration and pending-byte measurements, exporter, and AI Processor integration remain pending.

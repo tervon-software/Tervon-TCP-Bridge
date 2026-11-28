@@ -112,10 +112,18 @@ func (r *Registry) Resume(id SessionID, peer [32]byte) (*Attachment, error) {
 
 // Detach starts the grace period after all backend I/O on path has stopped.
 func (r *Registry) Detach(id SessionID, path *Attachment) {
-	r.detach(id, path)
+	r.DetachWithReason(id, path, PathCloseUnknown)
 }
 
-func (r *Registry) detach(id SessionID, path *Attachment) bool {
+// DetachWithReason records the failure observed by the current path.
+func (r *Registry) DetachWithReason(id SessionID, path *Attachment, reason PathCloseReason) {
+	if reason == "" {
+		reason = PathCloseUnknown
+	}
+	r.detach(id, path, reason)
+}
+
+func (r *Registry) detach(id SessionID, path *Attachment, reason PathCloseReason) bool {
 	r.mu.Lock()
 
 	entry := r.sessions[id]
@@ -127,7 +135,7 @@ func (r *Registry) detach(id SessionID, path *Attachment) bool {
 	entry.path = nil
 	now := r.now()
 	entry.deadline = now.Add(r.grace)
-	event := r.closedEvent(entry, now)
+	event := r.closedEvent(entry, now, reason)
 	r.mu.Unlock()
 	r.observeClose(event)
 	return true
@@ -136,6 +144,14 @@ func (r *Registry) detach(id SessionID, path *Attachment) bool {
 // End removes the session and closes the backend for the current path.
 // A stale path cannot close a session that has resumed elsewhere.
 func (r *Registry) End(id SessionID, path *Attachment) error {
+	return r.EndWithReason(id, path, PathCloseNormal)
+}
+
+// EndWithReason records a terminal observation before closing the backend.
+func (r *Registry) EndWithReason(id SessionID, path *Attachment, reason PathCloseReason) error {
+	if reason == "" {
+		reason = PathCloseUnknown
+	}
 	r.mu.Lock()
 	entry := r.sessions[id]
 	if entry == nil || path == nil || entry.path != path {
@@ -143,7 +159,7 @@ func (r *Registry) End(id SessionID, path *Attachment) error {
 		return ErrSessionMissing
 	}
 	delete(r.sessions, id)
-	event := r.closedEvent(entry, r.now())
+	event := r.closedEvent(entry, r.now(), reason)
 	r.mu.Unlock()
 	err := entry.session.Close()
 	r.observeClose(event)

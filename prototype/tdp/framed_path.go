@@ -1,6 +1,9 @@
 package tdp
 
-import "io"
+import (
+	"errors"
+	"io"
+)
 
 // FramedPath exchanges DATA and ACK on a negotiated transport. Its caller
 // serializes operations, sets transport deadlines and stops all I/O before
@@ -48,9 +51,17 @@ func (p *FramedPath) Replay() error {
 func (p *FramedPath) Receive(dst io.Writer) (*Frame, error) {
 	frame, err := ReadFrame(p.wire)
 	if err != nil {
-		return nil, pathIOError(err)
+		err = pathIOError(err)
+		if errors.Is(err, ErrPathIO) {
+			err = &pathFailure{reason: PathCloseTransportRead, err: err}
+		}
+		return nil, err
 	}
-	return p.transfer.Handle(dst, frame)
+	ack, err := p.transfer.Handle(dst, frame)
+	if ack != nil && err != nil && !errors.Is(err, ErrOffset) {
+		err = &pathFailure{reason: PathCloseBackendWrite, err: err}
+	}
+	return ack, err
 }
 
 func (p *FramedPath) SendACK(offset uint64) error {
@@ -61,5 +72,9 @@ func (p *FramedPath) SendACK(offset uint64) error {
 }
 
 func (p *FramedPath) write(frame Frame) error {
-	return pathIOError(WriteFrame(p.wire, frame))
+	err := pathIOError(WriteFrame(p.wire, frame))
+	if errors.Is(err, ErrPathIO) {
+		return &pathFailure{reason: PathCloseTransportWrite, err: err}
+	}
+	return err
 }

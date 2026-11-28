@@ -17,6 +17,7 @@ type PathEvent struct {
 	PreviousTransport Transport
 	Opened            bool
 	Lifetime          time.Duration
+	Reason            PathCloseReason
 }
 
 func (r *Registry) observeOpen(id SessionID, path *Attachment, transport Transport) {
@@ -42,11 +43,11 @@ func (r *Registry) observeOpen(id SessionID, path *Attachment, transport Transpo
 }
 
 // Called under the registry lock, before removing or detaching an entry.
-func (r *Registry) closedEvent(entry *registeredSession, now time.Time) PathEvent {
+func (r *Registry) closedEvent(entry *registeredSession, now time.Time, reason PathCloseReason) PathEvent {
 	if entry.openedAt.IsZero() {
 		return PathEvent{}
 	}
-	event := PathEvent{Transport: entry.transport, Lifetime: now.Sub(entry.openedAt)}
+	event := PathEvent{Transport: entry.transport, Lifetime: now.Sub(entry.openedAt), Reason: reason}
 	entry.openedAt = time.Time{}
 	return event
 }
