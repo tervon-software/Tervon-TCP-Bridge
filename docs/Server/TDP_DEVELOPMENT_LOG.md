@@ -75,3 +75,9 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp, go vet ./tdp and go mod 
 Branch work/tdp, base 04c689a689093f9e73d419bcb306f4c56353d263. Updated tcp_path_test.go. After DATA delivery, the QUIC case drops datagrams in both directions at the server socket wrapper. The server queues an ACK and the client observes a read timeout while the transport is still open. The test then closes the failed path, explicitly detaches and resumes over TCP, and checks single delivery, release of the replay window and one backend dial.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The test controls the deadline and recovery. Continuous duplex forwarding, automatic recovery in the Bridge runtime and production acceptance remain pending.
+
+## Client fallback runner
+
+Branch work/tdp, base 22d4fd3c9278de89be0a89edf85634ce4ed01253. Added fallback.go and fallback_test.go, and annotated transport read/write failures in framed_path.go. After a QUIC path I/O failure, the runner releases the first path, calls authenticated TCP resume with the same ID, and replays buffered data before continuing. Protocol violations and caller cancellation do not initiate fallback. The caller supplies the path runner, deadlines, and transport setup. Server-side detachment and handling the race with TCP resume are still the responsibility of the runtime adapter.
+
+Linux amd64, Go 1.23.12: go test -race -count=5 ./tdp and go vet ./tdp passed. Runner tests use an injected wire failure. The existing real-socket packet-loss test still performs explicit handoff. Runtime wiring and continuous duplex failover acceptance remain pending.

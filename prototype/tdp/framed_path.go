@@ -21,7 +21,7 @@ func (p *FramedPath) Send(payload []byte) error {
 	if err != nil {
 		return err
 	}
-	return WriteFrame(p.wire, frame)
+	return p.write(frame)
 }
 
 // Replay writes all bytes still awaiting acknowledgment. Each frame retains
@@ -36,7 +36,7 @@ func (p *FramedPath) Replay() error {
 		if err != nil {
 			return err
 		}
-		if err := WriteFrame(p.wire, frame); err != nil {
+		if err := p.write(frame); err != nil {
 			return err
 		}
 		offset += uint64(len(frame.Payload))
@@ -48,7 +48,7 @@ func (p *FramedPath) Replay() error {
 func (p *FramedPath) Receive(dst io.Writer) (*Frame, error) {
 	frame, err := ReadFrame(p.wire)
 	if err != nil {
-		return nil, err
+		return nil, pathIOError(err)
 	}
 	return p.transfer.Handle(dst, frame)
 }
@@ -57,5 +57,9 @@ func (p *FramedPath) SendACK(offset uint64) error {
 	if offset > p.transfer.ReceiveOffset() {
 		return ErrOffset
 	}
-	return WriteFrame(p.wire, Frame{Kind: AckFrame, Offset: offset})
+	return p.write(Frame{Kind: AckFrame, Offset: offset})
+}
+
+func (p *FramedPath) write(frame Frame) error {
+	return pathIOError(WriteFrame(p.wire, frame))
 }
