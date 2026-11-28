@@ -199,3 +199,9 @@ Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. 
 Branch work/tdp, base bf0a1cdc1ddaeda7ec22d3ff0e8116957a9c488a. Added tcp_half_close_test.go. A real loopback TCP backend reads the request to EOF after a TDP FIN. It then writes a response and half-closes its own write side. TDP delivers the response in multiple frames and confirms both directional FINs. The same registered backend/socket stays in use. The TDP frame wire in this test is an in-memory buffer and data flow is sequential.
 
 Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. Continuous duplex forwarding and CLI wiring remain pending.
+
+## Continuous bidirectional forwarding on an attached path
+
+Branch work/tdp, base b455e98f2953097afd5d48f480a35856020fb8b4. Added duplex.go and duplex_test.go. RunDuplex owns transfer state and forwards DATA, cumulative ACK and FIN in both directions with a single wire writer. Source reads are bounded by replay capacity. On path exit it interrupts pending I/O, joins workers and retains any bytes concurrently consumed from the local connection. The caller retains the local connection for a possible resume and discards the old wire.
+
+Linux amd64, Go 1.23.12: go test -race -count=10 ./tdp and go vet ./tdp passed. The loopback test simultaneously transfers 32768 bytes in each direction with 257-byte replay windows over real TCP sockets, compares both directions byte-for-byte and completes the FIN exchange. The test uses an already negotiated-path abstraction with plain TCP as its wire. RELEASE dispatch, integration in the authenticated transport runtime, duplex migration acceptance and CLI wiring remain pending.
